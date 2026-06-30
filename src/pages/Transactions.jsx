@@ -2,9 +2,12 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Layout from '../components/layout/Layout'
 import MonthPicker from '../components/ui/MonthPicker'
+import EditTransactionModal from '../components/ui/EditTransactionModal'
+import LogTransactionModal from '../components/ui/LogTransactionModal'
+import ConfirmDeleteModal from '../components/ui/ConfirmDeleteModal'
 import { useTheme } from '../context/ThemeContext'
 import { useMonth } from '../hooks/useMonth'
-import { getTransactions, updateCategory } from '../api/endpoints'
+import { getTransactions, updateCategory, deleteTransaction } from '../api/endpoints'
 import { formatCurrency, formatDate } from '../utils/date'
 
 const CATEGORIES = ['FOOD', 'TRAVEL', 'SHOPPING', 'BILLS', 'ENTERTAINMENT', 'HEALTH', 'INVESTMENT', 'SALARY', 'TRANSFER', 'OTHER']
@@ -23,9 +26,13 @@ export default function Transactions() {
   const [page, setPage] = useState(0)
   const [filters, setFilters] = useState({ category: '', transactionType: '', paymentMode: '', counterparty: '' })
   const [editingId, setEditingId] = useState(null)
+  const [editingTxn, setEditingTxn] = useState(null)
+  const [showLogModal, setShowLogModal] = useState(false)
+  const [deletingId, setDeletingId] = useState(null)
+  const [deletingTxn, setDeletingTxn] = useState(null)
   const queryClient = useQueryClient()
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['transactions', from, to, page, filters],
     queryFn: () => getTransactions({
       from, to, page, size: 20,
@@ -46,6 +53,20 @@ export default function Transactions() {
     },
   })
 
+  const deleteMutation = useMutation({
+    mutationFn: (id) => deleteTransaction(id),
+    onMutate: (id) => setDeletingId(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['summary'] })
+      queryClient.invalidateQueries({ queryKey: ['categories'] })
+      queryClient.invalidateQueries({ queryKey: ['merchants'] })
+      queryClient.invalidateQueries({ queryKey: ['transactions-recent'] })
+      setDeletingTxn(null)
+    },
+    onSettled: () => setDeletingId(null),
+  })
+
   const setFilter = (key, val) => {
     setFilters((f) => ({ ...f, [key]: val }))
     setPage(0)
@@ -62,9 +83,17 @@ export default function Transactions() {
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '24px' }}>
           <div>
             <h1 style={{ fontSize: '28px', fontWeight: 800, color: theme.text, letterSpacing: '-0.02em', margin: 0 }}>Transactions</h1>
-            <p style={{ fontSize: '13px', color: theme.textMuted, marginTop: '4px' }}>{data?.totalElements ?? 0} transactions</p>
+            <p style={{ fontSize: '13px', color: theme.textMuted, marginTop: '4px' }}>{isError ? '—' : `${data?.totalElements ?? 0} transactions`}</p>
           </div>
-          <MonthPicker label={label} onBack={goBack} onForward={goForward} disableForward={isCurrentMonth} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <MonthPicker label={label} onBack={goBack} onForward={goForward} disableForward={isCurrentMonth} />
+            <button
+                onClick={() => setShowLogModal(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 18px', borderRadius: '12px', border: 'none', background: '#10B981', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(16,185,129,0.3)' }}
+            >
+              + Log Transaction
+            </button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -96,16 +125,35 @@ export default function Transactions() {
           <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse' }}>
             <thead>
             <tr style={{ borderBottom: `1px solid ${theme.cardBorder}`, background: theme.tableHeaderBg }}>
-              {['Date', 'Merchant', 'Category', 'Mode', 'Type', 'Amount'].map((h) => (
+              {['Date', 'Merchant', 'Category', 'Mode', 'Type', 'Amount', 'Actions'].map((h) => (
                   <th key={h} style={{ textAlign: 'left', fontSize: '11px', fontWeight: 600, color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', padding: '14px 20px' }}>{h}</th>
               ))}
             </tr>
             </thead>
             <tbody>
             {isLoading ? (
-                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '48px', color: theme.textMuted }}>Loading...</td></tr>
+                <tr><td colSpan={7} style={{ textAlign: 'center', padding: '48px', color: theme.textMuted }}>Loading...</td></tr>
+            ) : isError ? (
+                <tr>
+                  <td colSpan={7} style={{ textAlign: 'center', padding: '48px' }}>
+                    <p style={{ fontSize: '24px', marginBottom: '8px' }}>⚠️</p>
+                    <p style={{ fontSize: '14px', fontWeight: 600, color: theme.text, margin: 0 }}>We're having trouble loading your transactions</p>
+                    <p style={{ fontSize: '12px', color: theme.textMuted, marginTop: '4px', marginBottom: '16px' }}>Please try again in a moment.</p>
+                    <button
+                        onClick={() => refetch()}
+                        disabled={isFetching}
+                        style={{
+                          fontSize: '12px', fontWeight: 600, padding: '8px 18px', borderRadius: '10px',
+                          border: 'none', cursor: isFetching ? 'default' : 'pointer',
+                          background: theme.sidebarActive, color: 'white', opacity: isFetching ? 0.6 : 1,
+                        }}
+                    >
+                      {isFetching ? 'Retrying...' : 'Try Again'}
+                    </button>
+                  </td>
+                </tr>
             ) : txns.length === 0 ? (
-                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '48px', color: theme.textMuted }}>No transactions found</td></tr>
+                <tr><td colSpan={7} style={{ textAlign: 'center', padding: '48px', color: theme.textMuted }}>No transactions found</td></tr>
             ) : txns.map((txn, i) => (
                 <tr
                     key={txn.id}
@@ -155,6 +203,34 @@ export default function Transactions() {
                   <td style={{ padding: '14px 20px', fontWeight: 700, color: txn.transactionType === 'DEBIT' ? '#F43F5E' : '#10B981' }}>
                     {txn.transactionType === 'DEBIT' ? '-' : '+'}{formatCurrency(txn.amount)}
                   </td>
+                  <td style={{ padding: '14px 20px' }}>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button
+                          onClick={() => setEditingTxn(txn)}
+                          title="Edit transaction"
+                          style={{
+                            fontSize: '11px', fontWeight: 600, padding: '5px 10px', borderRadius: '8px',
+                            border: `1.5px solid ${theme.inputBorder}`, cursor: 'pointer',
+                            background: 'transparent', color: theme.textSub,
+                          }}
+                      >
+                        ✎ Edit
+                      </button>
+                      <button
+                          onClick={() => setDeletingTxn(txn)}
+                          disabled={deletingId === txn.id}
+                          title="Delete transaction"
+                          style={{
+                            fontSize: '11px', fontWeight: 600, padding: '5px 10px', borderRadius: '8px',
+                            border: `1.5px solid ${theme.inputBorder}`, cursor: deletingId === txn.id ? 'default' : 'pointer',
+                            background: 'transparent', color: '#F43F5E',
+                            opacity: deletingId === txn.id ? 0.5 : 1,
+                          }}
+                      >
+                        {deletingId === txn.id ? '...' : '🗑 Delete'}
+                      </button>
+                    </div>
+                  </td>
                 </tr>
             ))}
             </tbody>
@@ -180,6 +256,23 @@ export default function Transactions() {
               </div>
           )}
         </div>
+
+        {editingTxn && (
+            <EditTransactionModal txn={editingTxn} onClose={() => setEditingTxn(null)} />
+        )}
+
+        {showLogModal && (
+            <LogTransactionModal onClose={() => setShowLogModal(false)} />
+        )}
+
+        {deletingTxn && (
+            <ConfirmDeleteModal
+                txn={deletingTxn}
+                isDeleting={deleteMutation.isPending}
+                onCancel={() => setDeletingTxn(null)}
+                onConfirm={() => deleteMutation.mutate(deletingTxn.id)}
+            />
+        )}
       </Layout>
   )
 }
