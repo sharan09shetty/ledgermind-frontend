@@ -1,6 +1,10 @@
+import { getGoogleLoginUrl } from '../api/endpoints'
+
 export default function Login() {
   const handleLogin = () => {
-    window.location.href = '/api/auth/google/login'
+    // Plain Google sign-in — no Gmail scope is requested here. Gmail access
+    // is a separate, consent-screen-gated step handled later from Settings.
+    window.location.href = getGoogleLoginUrl()
   }
 
   return (
@@ -28,7 +32,7 @@ export default function Login() {
           }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '28px' }}>
               {[
-                { icon: '📧', text: 'Auto-tracks bank emails from Gmail' },
+                { icon: '🔒', text: 'Secure sign-in with your Google account' },
                 { icon: '🤖', text: 'AI-powered spending insights via chat' },
                 { icon: '📊', text: 'Beautiful dashboards & analytics' },
               ].map(({ icon, text }) => (
@@ -70,7 +74,7 @@ export default function Login() {
           </div>
 
           <p style={{ textAlign: 'center', fontSize: '11px', color: '#475569', marginTop: '20px' }}>
-            We only read transaction notification emails. Your data stays private.
+            This just signs you in. You'll be asked to connect additional access later, from Settings.
           </p>
         </div>
       </div>

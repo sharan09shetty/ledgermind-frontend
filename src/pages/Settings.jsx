@@ -1,15 +1,50 @@
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Layout from '../components/layout/Layout'
 import ErrorState from '../components/ui/ErrorState'
 import { useTheme, THEMES } from '../context/ThemeContext'
-import { getUserStatus, getBanks, setBank } from '../api/endpoints'
+import { getUserStatus, getBanks, setBank, connectGmail } from '../api/endpoints'
 
 export default function Settings() {
   const queryClient = useQueryClient()
   const { theme, themeName, setThemeName } = useTheme()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [gmailBanner, setGmailBanner] = useState(null)
 
   const { data: status, isError: statusError, refetch: refetchStatus, isFetching: statusFetching } = useQuery({ queryKey: ['status'], queryFn: getUserStatus })
   const { data: banks = [], isError: banksError, refetch: refetchBanks, isFetching: banksFetching } = useQuery({ queryKey: ['banks'], queryFn: getBanks })
+
+  // Handle the redirect back from the Gmail consent screen:
+  // /settings?gmail=connected  or  /settings?gmail_error=<reason>
+  useEffect(() => {
+    const gmail = searchParams.get('gmail')
+    const gmailError = searchParams.get('gmail_error')
+
+    if (gmail === 'connected') {
+      setGmailBanner({ type: 'success', text: 'Gmail connected successfully.' })
+      queryClient.invalidateQueries({ queryKey: ['status'] })
+    } else if (gmailError) {
+      setGmailBanner({ type: 'error', text: `Couldn't connect Gmail: ${gmailError}` })
+    }
+
+    if (gmail || gmailError) {
+      const next = new URLSearchParams(searchParams)
+      next.delete('gmail')
+      next.delete('gmail_error')
+      setSearchParams(next, { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const gmailMutation = useMutation({
+    mutationFn: connectGmail,
+    onSuccess: (data) => {
+      // Only this final step is a real browser navigation — straight to
+      // Google's consent screen, using the URL the backend just minted.
+      window.location.href = data.url
+    },
+  })
 
   const hasError = statusError || banksError
   const isRetrying = statusFetching || banksFetching
@@ -50,6 +85,25 @@ export default function Settings() {
         </div>
 
         <div style={{ maxWidth: '480px' }}>
+
+          {gmailBanner && (
+              <div style={{
+                marginBottom: '12px', padding: '12px 16px', borderRadius: '14px',
+                background: gmailBanner.type === 'success' ? 'rgba(16,185,129,0.08)' : 'rgba(244,63,94,0.08)',
+                border: `1px solid ${gmailBanner.type === 'success' ? 'rgba(16,185,129,0.25)' : 'rgba(244,63,94,0.25)'}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
+              }}>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: gmailBanner.type === 'success' ? '#10B981' : '#F43F5E' }}>
+                  {gmailBanner.type === 'success' ? '✓ ' : '⚠️ '}{gmailBanner.text}
+                </span>
+                <button
+                    onClick={() => setGmailBanner(null)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: theme.textMuted, fontSize: '13px' }}
+                >
+                  ✕
+                </button>
+              </div>
+          )}
 
           {hasError ? (
               <ErrorState
@@ -118,6 +172,49 @@ export default function Settings() {
                   </div>
                 </div>
 
+                {/* Gmail */}
+                <div style={card}>
+                  <span style={labelStyle}>Gmail</span>
+                  <p style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '12px', marginTop: '-6px' }}>
+                    Connect Gmail so LedgerMind can automatically read your bank's transaction alert emails.
+                  </p>
+                  {status?.gmailConnected ? (
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '6px',
+                        fontSize: '12px', fontWeight: 600, padding: '8px 14px', borderRadius: '10px',
+                        background: 'rgba(16,185,129,0.1)', color: '#10B981',
+                      }}>
+                        ✓ Gmail Connected
+                      </span>
+                  ) : (
+                      <button
+                          onClick={() => gmailMutation.mutate()}
+                          disabled={gmailMutation.isPending}
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '8px',
+                            fontSize: '13px', fontWeight: 600, padding: '9px 16px',
+                            borderRadius: '10px', border: 'none',
+                            cursor: gmailMutation.isPending ? 'default' : 'pointer',
+                            opacity: gmailMutation.isPending ? 0.7 : 1,
+                            color: '#1E293B', background: 'white', boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
+                          }}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 18 18">
+                          <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 002.38-5.88c0-.57-.05-.66-.15-1.18z"/>
+                          <path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 01-7.18-2.54H1.83v2.07A8 8 0 008.98 17z"/>
+                          <path fill="#FBBC05" d="M4.5 10.52a4.8 4.8 0 010-3.04V5.41H1.83a8 8 0 000 7.18l2.67-2.07z"/>
+                          <path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 001.83 5.4L4.5 7.49a4.77 4.77 0 014.48-3.3z"/>
+                        </svg>
+                        {gmailMutation.isPending ? 'Connecting…' : 'Connect Gmail'}
+                      </button>
+                  )}
+                  {gmailMutation.isError && (
+                      <p style={{ fontSize: '12px', color: '#F43F5E', marginTop: '10px', marginBottom: 0 }}>
+                        Couldn't start Gmail connection. Please try again.
+                      </p>
+                  )}
+                </div>
+
                 {/* Bank */}
                 <div style={card}>
                   <span style={labelStyle}>Bank</span>
@@ -152,19 +249,38 @@ export default function Settings() {
                       <p style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '12px', marginTop: '-6px' }}>
                         Get transaction notifications and chat with your financial advisor.
                       </p>
-                      <a
-                          href={`https://t.me/${import.meta.env.VITE_TELEGRAM_BOT_USERNAME}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', gap: '6px',
-                            fontSize: '13px', fontWeight: 600, padding: '9px 16px',
-                            borderRadius: '10px', color: 'white', background: '#229ED9',
-                            textDecoration: 'none',
-                          }}
-                      >
-                        Open Telegram Bot ↗
-                      </a>
+                      {status?.gmailConnected ? (
+                          <a
+                              href={`https://t.me/${import.meta.env.VITE_TELEGRAM_BOT_USERNAME}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                fontSize: '13px', fontWeight: 600, padding: '9px 16px',
+                                borderRadius: '10px', color: 'white', background: '#229ED9',
+                                textDecoration: 'none',
+                              }}
+                          >
+                            Open Telegram Bot ↗
+                          </a>
+                      ) : (
+                          <>
+                            <button
+                                disabled
+                                style={{
+                                  display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                  fontSize: '13px', fontWeight: 600, padding: '9px 16px',
+                                  borderRadius: '10px', border: 'none', cursor: 'not-allowed',
+                                  color: theme.textMuted, background: theme.inputBorder,
+                                }}
+                            >
+                              Open Telegram Bot ↗
+                            </button>
+                            <p style={{ fontSize: '11px', color: theme.textMuted, marginTop: '8px', marginBottom: 0 }}>
+                              Connect Gmail first.
+                            </p>
+                          </>
+                      )}
                     </div>
                 )}
               </>

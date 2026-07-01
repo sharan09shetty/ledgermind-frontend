@@ -5,6 +5,13 @@ import api from './axios'
 export const getGoogleLoginUrl = () =>
     `${import.meta.env.VITE_API_BASE_URL || ''}/api/auth/google/login`
 
+// Protected endpoint — must go through the authenticated axios instance
+// (Authorization header), not a plain <a href> or window.location, since
+// the backend ignores query params for auth. Returns the actual Google
+// consent URL; only that second step should be a real browser navigation.
+export const connectGmail = () =>
+    api.get('/auth/google/gmail/connect').then((r) => r.data)
+
 // ── User ──────────────────────────────────────────────────────────────────────
 
 export const getUserStatus = () =>

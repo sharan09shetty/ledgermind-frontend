@@ -6,7 +6,7 @@ import MonthPicker from '../components/ui/MonthPicker'
 import ErrorState from '../components/ui/ErrorState'
 import { useTheme } from '../context/ThemeContext'
 import { useMonth } from '../hooks/useMonth'
-import { getSummary, getCategories, getMerchants, getTransactions } from '../api/endpoints'
+import { getSummary, getCategories, getMerchants, getTransactions, getUserStatus } from '../api/endpoints'
 import { formatCurrency, formatDate } from '../utils/date'
 
 const CATEGORY_COLORS = {
@@ -24,6 +24,8 @@ const CATEGORY_ICONS = {
 export default function Dashboard() {
   const { theme } = useTheme()
   const { from, to, label, goBack, goForward, isCurrentMonth } = useMonth()
+
+  const { data: status } = useQuery({ queryKey: ['status'], queryFn: getUserStatus })
 
   const { data: summary, isLoading: summaryLoading, isError: summaryError, refetch: refetchSummary, isFetching: summaryFetching } = useQuery({
     queryKey: ['summary', from, to],
@@ -67,6 +69,11 @@ export default function Dashboard() {
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '28px' }}>
           <div>
             <p style={{ ...sectionLabel, marginBottom: '4px' }}>Overview</p>
+            {status?.name && (
+                <p style={{ fontSize: '14px', fontWeight: 600, color: theme.textSub, margin: '0 0 6px' }}>
+                  Welcome back, {status.name}
+                </p>
+            )}
             <h1 style={{ fontSize: '30px', fontWeight: 800, color: theme.text, letterSpacing: '-0.02em', margin: 0 }}>
               {summaryLoading ? '—' : formatCurrency(summary?.totalDebit)}
               <span style={{ fontSize: '17px', fontWeight: 400, color: theme.textMuted, marginLeft: '10px' }}>spent this month</span>
