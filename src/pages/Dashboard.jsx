@@ -5,6 +5,7 @@ import SpendingPulse from '../components/ui/SpendingPulse'
 import MonthPicker from '../components/ui/MonthPicker'
 import ErrorState from '../components/ui/ErrorState'
 import { useTheme } from '../context/ThemeContext'
+import { useIsMobile } from '../hooks/useIsMobile'
 import { useMonth } from '../hooks/useMonth'
 import { getSummary, getCategories, getMerchants, getTransactions, getUserStatus } from '../api/endpoints'
 import { formatCurrency, formatDate } from '../utils/date'
@@ -23,6 +24,7 @@ const CATEGORY_ICONS = {
 
 export default function Dashboard() {
   const { theme } = useTheme()
+  const isMobile = useIsMobile()
   const { from, to, label, goBack, goForward, isCurrentMonth } = useMonth()
 
   const { data: status } = useQuery({ queryKey: ['status'], queryFn: getUserStatus })
@@ -66,7 +68,12 @@ export default function Dashboard() {
   return (
       <Layout>
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '28px' }}>
+        <div style={{
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          alignItems: isMobile ? 'stretch' : 'flex-start',
+          justifyContent: 'space-between', gap: isMobile ? '14px' : 0, marginBottom: '28px',
+        }}>
           <div>
             <p style={{ ...sectionLabel, marginBottom: '4px' }}>Overview</p>
             {status?.name && (
@@ -74,9 +81,9 @@ export default function Dashboard() {
                   Welcome back, {status.name}
                 </p>
             )}
-            <h1 style={{ fontSize: '30px', fontWeight: 800, color: theme.text, letterSpacing: '-0.02em', margin: 0 }}>
+            <h1 style={{ fontSize: isMobile ? '24px' : '30px', fontWeight: 800, color: theme.text, letterSpacing: '-0.02em', margin: 0 }}>
               {summaryLoading ? '—' : formatCurrency(summary?.totalDebit)}
-              <span style={{ fontSize: '17px', fontWeight: 400, color: theme.textMuted, marginLeft: '10px' }}>spent this month</span>
+              <span style={{ fontSize: isMobile ? '14px' : '17px', fontWeight: 400, color: theme.textMuted, marginLeft: '10px' }}>spent this month</span>
             </h1>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -95,7 +102,7 @@ export default function Dashboard() {
         ) : (
             <>
               {/* Stat cards */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '20px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: '12px', marginBottom: '20px' }}>
                 {[
                   { label: 'Total Spent', value: formatCurrency(summary?.totalDebit), sub: `${summary?.transactionCount ?? 0} transactions`, dot: '#F43F5E' },
                   { label: 'Total Received', value: formatCurrency(summary?.totalCredit), dot: '#10B981' },
@@ -114,7 +121,7 @@ export default function Dashboard() {
               </div>
 
               {/* Categories + recent transactions */}
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 3fr', gap: '16px', marginBottom: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 3fr', gap: '16px', marginBottom: '16px' }}>
 
                 <div style={{ ...card, padding: '20px' }}>
                   <p style={{ ...sectionLabel, marginBottom: '16px' }}>By Category</p>
@@ -184,7 +191,7 @@ export default function Dashboard() {
               {merchants.length > 0 && (
                   <div style={{ ...card, padding: '20px' }}>
                     <p style={{ ...sectionLabel, marginBottom: '16px' }}>Top Merchants</p>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(5, 1fr)', gap: '12px' }}>
                       {merchants.map((m) => {
                         const color = CATEGORY_COLORS[m.topCategory] ?? '#CBD5E1'
                         return (

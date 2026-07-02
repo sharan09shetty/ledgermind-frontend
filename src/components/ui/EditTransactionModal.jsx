@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTheme } from '../../context/ThemeContext'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import { updateTransaction } from '../../api/endpoints'
 
 const CATEGORIES = ['FOOD', 'TRAVEL', 'SHOPPING', 'BILLS', 'ENTERTAINMENT', 'HEALTH', 'INVESTMENT', 'SALARY', 'TRANSFER', 'OTHER']
@@ -9,6 +10,7 @@ const MODES = ['UPI', 'CREDIT_CARD', 'DEBIT_CARD', 'CASH', 'CHEQUE', 'NEFT', 'IM
 
 function Modal({ txn, onClose }) {
     const { theme } = useTheme()
+    const isMobile = useIsMobile()
     const queryClient = useQueryClient()
     const [form, setForm] = useState({
         counterparty: txn.counterparty ?? '',
@@ -51,16 +53,21 @@ function Modal({ txn, onClose }) {
             {/* Modal card */}
             <div style={{
                 position: 'fixed',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
+                top: isMobile ? 'auto' : '50%',
+                bottom: isMobile ? 0 : 'auto',
+                left: isMobile ? 0 : '50%',
+                right: isMobile ? 0 : 'auto',
+                transform: isMobile ? 'none' : 'translate(-50%, -50%)',
                 zIndex: 9999,
-                width: '360px',
+                width: isMobile ? '100%' : '360px',
+                maxHeight: isMobile ? '85vh' : 'auto',
+                overflowY: isMobile ? 'auto' : 'visible',
                 background: theme.card,
-                borderRadius: '20px',
+                borderRadius: isMobile ? '20px 20px 0 0' : '20px',
                 border: `1px solid ${theme.cardBorder}`,
                 boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
-                overflow: 'hidden',
+                boxSizing: 'border-box',
+                overflow: isMobile ? undefined : 'hidden',
             }}>
                 {/* Header */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `1px solid ${theme.cardBorder}` }}>

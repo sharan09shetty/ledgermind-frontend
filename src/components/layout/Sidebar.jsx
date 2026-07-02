@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { useTheme } from '../../context/ThemeContext'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 const links = [
     { to: '/', label: 'Dashboard', icon: '▦' },
@@ -10,10 +11,51 @@ const links = [
 
 export default function Sidebar() {
     const { theme } = useTheme()
+    const isMobile = useIsMobile()
 
     const handleLogout = () => {
         localStorage.removeItem('token')
         window.location.href = '/login'
+    }
+
+    if (isMobile) {
+        return (
+            <nav style={{
+                position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 100,
+                display: 'flex', alignItems: 'stretch', justifyContent: 'space-around',
+                height: '64px', background: theme.sidebar,
+                borderTop: '1px solid rgba(255,255,255,0.06)',
+                paddingBottom: 'env(safe-area-inset-bottom)',
+            }}>
+                {links.map(({ to, label, icon }) => (
+                    <NavLink
+                        key={to}
+                        to={to}
+                        end={to === '/'}
+                        style={({ isActive }) => ({
+                            flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+                            justifyContent: 'center', gap: '2px', textDecoration: 'none',
+                            fontSize: '10px', fontWeight: isActive ? 600 : 500,
+                            color: isActive ? theme.sidebarActive : theme.sidebarText,
+                        })}
+                    >
+                        <span style={{ fontSize: '17px' }}>{icon}</span>
+                        {label}
+                    </NavLink>
+                ))}
+                <button
+                    onClick={handleLogout}
+                    style={{
+                        flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+                        justifyContent: 'center', gap: '2px', border: 'none', background: 'transparent',
+                        fontSize: '10px', fontWeight: 500, color: theme.sidebarText, cursor: 'pointer',
+                    }}
+                >
+                    <span style={{ fontSize: '17px' }}>↑</span>
+                    Sign out
+                </button>
+            </nav>
+        )
     }
 
     return (

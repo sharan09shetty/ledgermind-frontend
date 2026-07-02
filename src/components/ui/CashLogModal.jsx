@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTheme } from '../../context/ThemeContext'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 const CATEGORIES = ['FOOD', 'TRAVEL', 'SHOPPING', 'BILLS', 'ENTERTAINMENT', 'HEALTH', 'INVESTMENT', 'SALARY', 'TRANSFER', 'OTHER']
 
@@ -23,6 +24,7 @@ const logCashDirect = async ({ amount, type, category, counterparty }) => {
 
 function Modal({ onClose }) {
     const { theme } = useTheme()
+    const isMobile = useIsMobile()
     const queryClient = useQueryClient()
     const [form, setForm] = useState({ amount: '', type: 'DEBIT', category: 'FOOD', counterparty: '' })
     const [success, setSuccess] = useState(false)
@@ -54,15 +56,19 @@ function Modal({ onClose }) {
             {/* Modal card */}
             <div style={{
                 position: 'fixed',
-                bottom: '24px',
-                right: '24px',
+                bottom: isMobile ? 0 : '24px',
+                right: isMobile ? 0 : '24px',
+                left: isMobile ? 0 : 'auto',
                 zIndex: 9999,
-                width: '320px',
+                width: isMobile ? '100%' : '320px',
+                maxHeight: isMobile ? '85vh' : 'auto',
+                overflowY: isMobile ? 'auto' : 'visible',
                 background: theme.card,
-                borderRadius: '20px',
+                borderRadius: isMobile ? '20px 20px 0 0' : '20px',
                 border: `1px solid ${theme.cardBorder}`,
                 boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
-                overflow: 'hidden',
+                boxSizing: 'border-box',
+                overflow: isMobile ? undefined : 'hidden',
             }}>
                 {/* Header */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `1px solid ${theme.cardBorder}` }}>

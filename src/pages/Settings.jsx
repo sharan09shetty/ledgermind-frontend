@@ -249,38 +249,36 @@ export default function Settings() {
                       <p style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '12px', marginTop: '-6px' }}>
                         Get transaction notifications and chat with your financial advisor.
                       </p>
-                      {status?.gmailConnected ? (
-                          <a
-                              href={`https://t.me/${import.meta.env.VITE_TELEGRAM_BOT_USERNAME}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              style={{
-                                display: 'inline-flex', alignItems: 'center', gap: '6px',
-                                fontSize: '13px', fontWeight: 600, padding: '9px 16px',
-                                borderRadius: '10px', color: 'white', background: '#229ED9',
-                                textDecoration: 'none',
-                              }}
-                          >
-                            Open Telegram Bot ↗
-                          </a>
-                      ) : (
-                          <>
-                            <button
-                                disabled
-                                style={{
-                                  display: 'inline-flex', alignItems: 'center', gap: '6px',
-                                  fontSize: '13px', fontWeight: 600, padding: '9px 16px',
-                                  borderRadius: '10px', border: 'none', cursor: 'not-allowed',
-                                  color: theme.textMuted, background: theme.inputBorder,
-                                }}
-                            >
-                              Open Telegram Bot ↗
-                            </button>
-                            <p style={{ fontSize: '11px', color: theme.textMuted, marginTop: '8px', marginBottom: 0 }}>
-                              Connect Gmail first.
-                            </p>
-                          </>
-                      )}
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                        <div style={{
+                          padding: '10px', borderRadius: '12px', background: 'white',
+                          border: `1px solid ${theme.cardBorder}`,
+                        }}>
+                          <img
+                              src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(`https://t.me/${import.meta.env.VITE_TELEGRAM_BOT_USERNAME}`)}`}
+                              alt="Scan to open the LedgerMind Telegram bot"
+                              width={160}
+                              height={160}
+                              style={{ display: 'block' }}
+                          />
+                        </div>
+                        <p style={{ fontSize: '11px', color: theme.textMuted, margin: 0 }}>
+                          Scan with your phone's camera to start the bot
+                        </p>
+                        <a
+                            href={`https://t.me/${import.meta.env.VITE_TELEGRAM_BOT_USERNAME}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '6px',
+                              fontSize: '12px', fontWeight: 600, padding: '7px 14px',
+                              borderRadius: '10px', color: 'white', background: '#229ED9',
+                              textDecoration: 'none',
+                            }}
+                        >
+                          Open in Telegram app ↗
+                        </a>
+                      </div>
                     </div>
                 )}
               </>

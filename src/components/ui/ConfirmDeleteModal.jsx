@@ -1,9 +1,11 @@
 import { createPortal } from 'react-dom'
 import { useTheme } from '../../context/ThemeContext'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import { formatCurrency, formatDate } from '../../utils/date'
 
 function Modal({ txn, onConfirm, onCancel, isDeleting }) {
     const { theme } = useTheme()
+    const isMobile = useIsMobile()
 
     return (
         <>
@@ -16,15 +18,18 @@ function Modal({ txn, onConfirm, onCancel, isDeleting }) {
             {/* Modal card */}
             <div style={{
                 position: 'fixed',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
+                top: isMobile ? 'auto' : '50%',
+                bottom: isMobile ? 0 : 'auto',
+                left: isMobile ? 0 : '50%',
+                right: isMobile ? 0 : 'auto',
+                transform: isMobile ? 'none' : 'translate(-50%, -50%)',
                 zIndex: 9999,
-                width: '340px',
+                width: isMobile ? '100%' : '340px',
                 background: theme.card,
-                borderRadius: '20px',
+                borderRadius: isMobile ? '20px 20px 0 0' : '20px',
                 border: `1px solid ${theme.cardBorder}`,
                 boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+                boxSizing: 'border-box',
                 overflow: 'hidden',
             }}>
                 <div style={{ padding: '24px 20px 20px', textAlign: 'center' }}>

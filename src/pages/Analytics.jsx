@@ -8,6 +8,7 @@ import Layout from '../components/layout/Layout'
 import CashLogModal from '../components/ui/CashLogModal'
 import ErrorState from '../components/ui/ErrorState'
 import { useTheme } from '../context/ThemeContext'
+import { useIsMobile } from '../hooks/useIsMobile'
 import { getTransactions, getCategories, getMerchants } from '../api/endpoints'
 import { formatCurrency, toApiDateTime } from '../utils/date'
 import { subDays, startOfDay, endOfDay, format, eachDayOfInterval, parseISO } from 'date-fns'
@@ -38,6 +39,7 @@ const MerchantTick = ({ x, y, payload, theme }) => (
 export default function Analytics() {
   const [showCashLog, setShowCashLog] = useState(false)
   const { theme } = useTheme()
+  const isMobile = useIsMobile()
 
   const { data: txnData, isLoading, isError: txnError, refetch: refetchTxn, isFetching: txnFetching } = useQuery({
     queryKey: ['analytics-txns', from30, to30],
@@ -95,14 +97,19 @@ export default function Analytics() {
 
   return (
       <Layout>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '28px' }}>
+        <div style={{
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          alignItems: isMobile ? 'stretch' : 'flex-start',
+          justifyContent: 'space-between', gap: isMobile ? '14px' : 0, marginBottom: '28px',
+        }}>
           <div>
             <p style={{ fontSize: '11px', fontWeight: 600, color: theme.textMuted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>Analytics</p>
-            <h1 style={{ fontSize: '28px', fontWeight: 800, color: theme.text, letterSpacing: '-0.02em', margin: 0 }}>Last 30 Days</h1>
+            <h1 style={{ fontSize: isMobile ? '24px' : '28px', fontWeight: 800, color: theme.text, letterSpacing: '-0.02em', margin: 0 }}>Last 30 Days</h1>
           </div>
           <button
               onClick={() => setShowCashLog(true)}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 18px', borderRadius: '12px', border: 'none', background: '#10B981', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '9px 18px', borderRadius: '12px', border: 'none', background: '#10B981', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
           >
             + Cash
           </button>
@@ -117,7 +124,7 @@ export default function Analytics() {
         ) : (
             <>
               {/* Quick stats */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '20px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: '12px', marginBottom: '20px' }}>
                 {[
                   { label: 'Total Spent', value: formatCurrency(totalSpent30), dot: '#F43F5E' },
                   { label: 'Total Received', value: formatCurrency(totalReceived30), dot: '#10B981' },
@@ -162,7 +169,7 @@ export default function Analytics() {
                 )}
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px' }}>
                 {/* Category bars */}
                 <div style={{ ...card, padding: '20px' }}>
                   <p style={{ fontSize: '11px', fontWeight: 600, color: theme.textMuted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '16px' }}>Categories This Month</p>
