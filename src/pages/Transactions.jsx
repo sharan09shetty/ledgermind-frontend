@@ -127,10 +127,137 @@ export default function Transactions() {
           </div>
         </div>
 
-        {/* Table */}
+        {/* Mobile: card list (no horizontal scroll needed to reach actions) */}
+        {isMobile ? (
+            <div style={{ ...card, overflow: 'hidden' }}>
+              {isLoading ? (
+                  <div style={{ textAlign: 'center', padding: '48px', color: theme.textMuted, fontSize: '13px' }}>Loading...</div>
+              ) : isError ? (
+                  <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+                    <p style={{ fontSize: '24px', marginBottom: '8px' }}>⚠️</p>
+                    <p style={{ fontSize: '14px', fontWeight: 600, color: theme.text, margin: 0 }}>We're having trouble loading your transactions</p>
+                    <p style={{ fontSize: '12px', color: theme.textMuted, marginTop: '4px', marginBottom: '16px' }}>Please try again in a moment.</p>
+                    <button
+                        onClick={() => refetch()}
+                        disabled={isFetching}
+                        style={{
+                          fontSize: '12px', fontWeight: 600, padding: '8px 18px', borderRadius: '10px',
+                          border: 'none', cursor: isFetching ? 'default' : 'pointer',
+                          background: theme.sidebarActive, color: 'white', opacity: isFetching ? 0.6 : 1,
+                        }}
+                    >
+                      {isFetching ? 'Retrying...' : 'Try Again'}
+                    </button>
+                  </div>
+              ) : txns.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '48px', color: theme.textMuted, fontSize: '13px' }}>No transactions found</div>
+              ) : txns.map((txn, i) => (
+                  <div
+                      key={txn.id}
+                      style={{
+                        padding: '14px 16px',
+                        borderBottom: i < txns.length - 1 ? `1px solid ${theme.cardBorder}` : 'none',
+                        background: i % 2 === 1 ? theme.tableRowAlt : 'transparent',
+                      }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px', marginBottom: '8px' }}>
+                      <div style={{ minWidth: 0 }}>
+                        <p style={{ fontWeight: 700, color: theme.text, margin: 0, fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{txn.counterparty ?? '—'}</p>
+                        <p style={{ fontSize: '11px', color: theme.textMuted, margin: '2px 0 0' }}>{formatDate(txn.transactionTime)}</p>
+                      </div>
+                      <p style={{ fontWeight: 700, fontSize: '15px', margin: 0, flexShrink: 0, color: txn.transactionType === 'DEBIT' ? '#F43F5E' : '#10B981' }}>
+                        {txn.transactionType === 'DEBIT' ? '-' : '+'}{formatCurrency(txn.amount)}
+                      </p>
+                    </div>
+
+                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
+                      {editingId === txn.id ? (
+                          <select
+                              defaultValue={txn.category}
+                              autoFocus
+                              onChange={(e) => categoryMutation.mutate({ id: txn.id, category: e.target.value })}
+                              onBlur={() => setEditingId(null)}
+                              style={{ border: `1.5px solid ${theme.sidebarActive}`, borderRadius: '8px', padding: '4px 8px', fontSize: '11px', outline: 'none', background: theme.card, color: theme.text }}
+                          >
+                            {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+                          </select>
+                      ) : (
+                          <button
+                              onClick={() => setEditingId(txn.id)}
+                              style={{
+                                fontSize: '11px', fontWeight: 600, padding: '4px 10px', borderRadius: '20px',
+                                border: 'none', cursor: 'pointer',
+                                background: `${CATEGORY_COLORS[txn.category] ?? '#CBD5E1'}22`,
+                                color: CATEGORY_COLORS[txn.category] ?? theme.textSub,
+                              }}
+                          >
+                            {txn.category}
+                          </button>
+                      )}
+                      <span style={{
+                        fontSize: '11px', fontWeight: 600, padding: '3px 9px', borderRadius: '20px',
+                        background: txn.transactionType === 'DEBIT' ? 'rgba(244,63,94,0.12)' : 'rgba(16,185,129,0.12)',
+                        color: txn.transactionType === 'DEBIT' ? '#F43F5E' : '#10B981',
+                      }}>
+                        {txn.transactionType}
+                      </span>
+                      <span style={{ fontSize: '11px', fontWeight: 500, padding: '3px 9px', borderRadius: '20px', background: theme.inputBg, color: theme.textSub }}>
+                        {txn.paymentMode}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                          onClick={() => setEditingTxn(txn)}
+                          style={{
+                            flex: 1, fontSize: '12px', fontWeight: 600, padding: '8px 10px', borderRadius: '8px',
+                            border: `1.5px solid ${theme.inputBorder}`, cursor: 'pointer',
+                            background: 'transparent', color: theme.textSub,
+                          }}
+                      >
+                        ✎ Edit
+                      </button>
+                      <button
+                          onClick={() => setDeletingTxn(txn)}
+                          disabled={deletingId === txn.id}
+                          style={{
+                            flex: 1, fontSize: '12px', fontWeight: 600, padding: '8px 10px', borderRadius: '8px',
+                            border: `1.5px solid ${theme.inputBorder}`, cursor: deletingId === txn.id ? 'default' : 'pointer',
+                            background: 'transparent', color: '#F43F5E',
+                            opacity: deletingId === txn.id ? 0.5 : 1,
+                          }}
+                      >
+                        {deletingId === txn.id ? '...' : '🗑 Delete'}
+                      </button>
+                    </div>
+                  </div>
+              ))}
+
+              {totalPages > 1 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderTop: `1px solid ${theme.cardBorder}` }}>
+                    <button
+                        onClick={() => setPage((p) => Math.max(0, p - 1))}
+                        disabled={page === 0}
+                        style={{ fontSize: '12px', fontWeight: 600, color: theme.textSub, background: 'none', border: 'none', cursor: page === 0 ? 'default' : 'pointer', opacity: page === 0 ? 0.3 : 1 }}
+                    >
+                      ← Prev
+                    </button>
+                    <span style={{ fontSize: '12px', color: theme.textMuted }}>Page {page + 1} of {totalPages}</span>
+                    <button
+                        onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                        disabled={page >= totalPages - 1}
+                        style={{ fontSize: '12px', fontWeight: 600, color: theme.textSub, background: 'none', border: 'none', cursor: page >= totalPages - 1 ? 'default' : 'pointer', opacity: page >= totalPages - 1 ? 0.3 : 1 }}
+                    >
+                      Next →
+                    </button>
+                  </div>
+              )}
+            </div>
+        ) : (
+        /* Desktop: table */
         <div style={{ ...card, overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-            <table style={{ width: '100%', minWidth: isMobile ? '720px' : undefined, fontSize: '13px', borderCollapse: 'collapse' }}>
+            <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse' }}>
               <thead>
               <tr style={{ borderBottom: `1px solid ${theme.cardBorder}`, background: theme.tableHeaderBg }}>
                 {['Date', 'Merchant', 'Category', 'Mode', 'Type', 'Amount', 'Actions'].map((h) => (
@@ -265,6 +392,7 @@ export default function Transactions() {
               </div>
           )}
         </div>
+        )}
 
         {editingTxn && (
             <EditTransactionModal txn={editingTxn} onClose={() => setEditingTxn(null)} />

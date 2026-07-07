@@ -202,10 +202,11 @@ export default function Analytics() {
                   {merchants.length === 0 ? (
                       <p style={{ fontSize: '13px', color: theme.textMuted, textAlign: 'center', padding: '24px 0' }}>No data yet</p>
                   ) : (
-                      <ResponsiveContainer width="100%" height={280}>
+                      <ResponsiveContainer width="100%" height={Math.max(220, merchants.filter((m) => m.merchant).length * 32)}>
                         <BarChart
-                            data={merchants}
+                            data={merchants.filter((m) => m.merchant)}
                             layout="vertical"
+                            barCategoryGap="25%"
                             margin={{ left: 8, right: 24, top: 0, bottom: 0 }}
                         >
                           <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={theme.cardBorder} />

@@ -23,6 +23,14 @@ export const setBank = (code) =>
 export const getBanks = () =>
     api.get('/banks').then((r) => r.data)
 
+// ── Telegram ──────────────────────────────────────────────────────────────────
+
+export const getTelegramLinkToken = () =>
+    api.post('/telegram/link-token').then((r) => r.data)
+
+export const unlinkTelegram = () =>
+    api.post('/telegram/unlink').then((r) => r.data)
+
 // ── Analytics ─────────────────────────────────────────────────────────────────
 
 export const getSummary = (from, to) =>

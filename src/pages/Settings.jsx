@@ -5,7 +5,7 @@ import Layout from '../components/layout/Layout'
 import ErrorState from '../components/ui/ErrorState'
 import TelegramLinkModal from '../components/ui/TelegramLinkModal'
 import { useTheme, THEMES } from '../context/ThemeContext'
-import { getUserStatus, getBanks, setBank, connectGmail } from '../api/endpoints'
+import { getUserStatus, getBanks, setBank, connectGmail, unlinkTelegram } from '../api/endpoints'
 
 export default function Settings() {
   const queryClient = useQueryClient()
@@ -57,6 +57,11 @@ export default function Settings() {
 
   const bankMutation = useMutation({
     mutationFn: setBank,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['status'] }),
+  })
+
+  const unlinkTelegramMutation = useMutation({
+    mutationFn: unlinkTelegram,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['status'] }),
   })
 
@@ -245,25 +250,52 @@ export default function Settings() {
                 </div>
 
                 {/* Telegram link */}
-                {!status?.telegramLinked && (
-                    <div style={card}>
-                      <span style={labelStyle}>Telegram</span>
-                      <p style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '12px', marginTop: '-6px' }}>
-                        Get transaction notifications and chat with your financial advisor.
-                      </p>
-                      <button
-                          onClick={() => setShowTelegramModal(true)}
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', gap: '6px',
-                            fontSize: '13px', fontWeight: 600, padding: '9px 16px',
-                            borderRadius: '10px', border: 'none', cursor: 'pointer',
-                            color: 'white', background: '#229ED9',
-                          }}
-                      >
-                        Link Telegram
-                      </button>
-                    </div>
-                )}
+                <div style={card}>
+                  <span style={labelStyle}>Telegram</span>
+                  {status?.telegramLinked ? (
+                      <>
+                        <p style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '12px', marginTop: '-6px' }}>
+                          Your Telegram account is connected. You'll get transaction notifications and can chat with your financial advisor any time.
+                        </p>
+                        <button
+                            onClick={() => unlinkTelegramMutation.mutate()}
+                            disabled={unlinkTelegramMutation.isPending}
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '6px',
+                              fontSize: '13px', fontWeight: 600, padding: '9px 16px',
+                              borderRadius: '10px', border: `1.5px solid ${theme.inputBorder}`,
+                              cursor: unlinkTelegramMutation.isPending ? 'default' : 'pointer',
+                              opacity: unlinkTelegramMutation.isPending ? 0.6 : 1,
+                              color: '#F43F5E', background: 'transparent',
+                            }}
+                        >
+                          {unlinkTelegramMutation.isPending ? 'Disconnecting…' : 'Disconnect Telegram'}
+                        </button>
+                        {unlinkTelegramMutation.isError && (
+                            <p style={{ fontSize: '12px', color: '#F43F5E', marginTop: '10px', marginBottom: 0 }}>
+                              Couldn't disconnect Telegram. Please try again.
+                            </p>
+                        )}
+                      </>
+                  ) : (
+                      <>
+                        <p style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '12px', marginTop: '-6px' }}>
+                          Get transaction notifications and chat with your financial advisor.
+                        </p>
+                        <button
+                            onClick={() => setShowTelegramModal(true)}
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '6px',
+                              fontSize: '13px', fontWeight: 600, padding: '9px 16px',
+                              borderRadius: '10px', border: 'none', cursor: 'pointer',
+                              color: 'white', background: '#229ED9',
+                            }}
+                        >
+                          Connect Telegram
+                        </button>
+                      </>
+                  )}
+                </div>
               </>
           )}
         </div>
