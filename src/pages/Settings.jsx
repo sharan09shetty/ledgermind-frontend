@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Layout from '../components/layout/Layout'
 import ErrorState from '../components/ui/ErrorState'
 import TelegramLinkModal from '../components/ui/TelegramLinkModal'
+import ConfirmDialog from '../components/ui/ConfirmDialog'
 import { useTheme, THEMES } from '../context/ThemeContext'
 import { getUserStatus, getBanks, setBank, connectGmail, unlinkTelegram } from '../api/endpoints'
 
@@ -13,6 +14,7 @@ export default function Settings() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [gmailBanner, setGmailBanner] = useState(null)
   const [showTelegramModal, setShowTelegramModal] = useState(false)
+  const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false)
 
   const { data: status, isError: statusError, refetch: refetchStatus, isFetching: statusFetching } = useQuery({ queryKey: ['status'], queryFn: getUserStatus })
   const { data: banks = [], isError: banksError, refetch: refetchBanks, isFetching: banksFetching } = useQuery({ queryKey: ['banks'], queryFn: getBanks })
@@ -62,7 +64,10 @@ export default function Settings() {
 
   const unlinkTelegramMutation = useMutation({
     mutationFn: unlinkTelegram,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['status'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['status'] })
+      setShowDisconnectConfirm(false)
+    },
   })
 
   const card = {
@@ -258,7 +263,7 @@ export default function Settings() {
                           Your Telegram account is connected. You'll get transaction notifications and can chat with your financial advisor any time.
                         </p>
                         <button
-                            onClick={() => unlinkTelegramMutation.mutate()}
+                            onClick={() => setShowDisconnectConfirm(true)}
                             disabled={unlinkTelegramMutation.isPending}
                             style={{
                               display: 'inline-flex', alignItems: 'center', gap: '6px',
@@ -302,6 +307,19 @@ export default function Settings() {
 
         {showTelegramModal && (
             <TelegramLinkModal onClose={() => setShowTelegramModal(false)} />
+        )}
+
+        {showDisconnectConfirm && (
+            <ConfirmDialog
+                icon="🔌"
+                title="Disconnect Telegram?"
+                message="You'll stop getting transaction notifications and won't be able to chat with your financial advisor until you link it again."
+                confirmLabel="Disconnect"
+                confirmingLabel="Disconnecting…"
+                isConfirming={unlinkTelegramMutation.isPending}
+                onConfirm={() => unlinkTelegramMutation.mutate()}
+                onCancel={() => setShowDisconnectConfirm(false)}
+            />
         )}
       </Layout>
   )
