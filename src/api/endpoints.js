@@ -12,6 +12,9 @@ export const getGoogleLoginUrl = () =>
 export const connectGmail = () =>
     api.get('/auth/google/gmail/connect').then((r) => r.data)
 
+export const disconnectGmail = () =>
+    api.post('/auth/google/gmail/disconnect').then((r) => r.data)
+
 // ── User ──────────────────────────────────────────────────────────────────────
 
 export const getUserStatus = () =>
@@ -66,4 +69,4 @@ export const updateTransaction = (transactionId, { counterparty, paymentMode, ca
 // ── Transaction delete ───────────────────────────────────────────────────────
 
 export const deleteTransaction = (transactionId) =>
-    api.post(`/transactions/${transactionId}`).then((r) => r.data)
+    api.delete(`/transactions/${transactionId}`).then((r) => r.data)

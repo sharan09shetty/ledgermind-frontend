@@ -6,7 +6,7 @@ import ErrorState from '../components/ui/ErrorState'
 import TelegramLinkModal from '../components/ui/TelegramLinkModal'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import { useTheme, THEMES } from '../context/ThemeContext'
-import { getUserStatus, getBanks, setBank, connectGmail, unlinkTelegram } from '../api/endpoints'
+import { getUserStatus, getBanks, setBank, connectGmail, disconnectGmail, unlinkTelegram } from '../api/endpoints'
 
 export default function Settings() {
   const queryClient = useQueryClient()
@@ -15,6 +15,7 @@ export default function Settings() {
   const [gmailBanner, setGmailBanner] = useState(null)
   const [showTelegramModal, setShowTelegramModal] = useState(false)
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false)
+  const [showGmailDisconnectConfirm, setShowGmailDisconnectConfirm] = useState(false)
 
   const { data: status, isError: statusError, refetch: refetchStatus, isFetching: statusFetching } = useQuery({ queryKey: ['status'], queryFn: getUserStatus })
   const { data: banks = [], isError: banksError, refetch: refetchBanks, isFetching: banksFetching } = useQuery({ queryKey: ['banks'], queryFn: getBanks })
@@ -67,6 +68,15 @@ export default function Settings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['status'] })
       setShowDisconnectConfirm(false)
+    },
+  })
+
+  const disconnectGmailMutation = useMutation({
+    mutationFn: disconnectGmail,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['status'] })
+      setShowGmailDisconnectConfirm(false)
+      setGmailBanner({ type: 'success', text: 'Gmail disconnected.' })
     },
   })
 
@@ -191,13 +201,29 @@ export default function Settings() {
                     Connect Gmail so LedgerMind can automatically read your bank's transaction alert emails.
                   </p>
                   {status?.gmailConnected ? (
-                      <span style={{
-                        display: 'inline-flex', alignItems: 'center', gap: '6px',
-                        fontSize: '12px', fontWeight: 600, padding: '8px 14px', borderRadius: '10px',
-                        background: 'rgba(16,185,129,0.1)', color: '#10B981',
-                      }}>
-                        ✓ Gmail Connected
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '6px',
+                          fontSize: '12px', fontWeight: 600, padding: '8px 14px', borderRadius: '10px',
+                          background: 'rgba(16,185,129,0.1)', color: '#10B981',
+                        }}>
+                          ✓ Gmail Connected
+                        </span>
+                        <button
+                            onClick={() => setShowGmailDisconnectConfirm(true)}
+                            disabled={disconnectGmailMutation.isPending}
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '6px',
+                              fontSize: '13px', fontWeight: 600, padding: '9px 16px',
+                              borderRadius: '10px', border: `1.5px solid ${theme.inputBorder}`,
+                              cursor: disconnectGmailMutation.isPending ? 'default' : 'pointer',
+                              opacity: disconnectGmailMutation.isPending ? 0.6 : 1,
+                              color: '#F43F5E', background: 'transparent',
+                            }}
+                        >
+                          {disconnectGmailMutation.isPending ? 'Disconnecting…' : 'Disconnect'}
+                        </button>
+                      </div>
                   ) : (
                       <button
                           onClick={() => gmailMutation.mutate()}
@@ -223,6 +249,11 @@ export default function Settings() {
                   {gmailMutation.isError && (
                       <p style={{ fontSize: '12px', color: '#F43F5E', marginTop: '10px', marginBottom: 0 }}>
                         Couldn't start Gmail connection. Please try again.
+                      </p>
+                  )}
+                  {disconnectGmailMutation.isError && (
+                      <p style={{ fontSize: '12px', color: '#F43F5E', marginTop: '10px', marginBottom: 0 }}>
+                        Couldn't disconnect Gmail. Please try again.
                       </p>
                   )}
                 </div>
@@ -319,6 +350,19 @@ export default function Settings() {
                 isConfirming={unlinkTelegramMutation.isPending}
                 onConfirm={() => unlinkTelegramMutation.mutate()}
                 onCancel={() => setShowDisconnectConfirm(false)}
+            />
+        )}
+
+        {showGmailDisconnectConfirm && (
+            <ConfirmDialog
+                icon="📧"
+                title="Disconnect Gmail?"
+                message="LedgerMind will stop reading your bank's transaction emails and syncing new transactions until you reconnect."
+                confirmLabel="Disconnect"
+                confirmingLabel="Disconnecting…"
+                isConfirming={disconnectGmailMutation.isPending}
+                onConfirm={() => disconnectGmailMutation.mutate()}
+                onCancel={() => setShowGmailDisconnectConfirm(false)}
             />
         )}
       </Layout>
