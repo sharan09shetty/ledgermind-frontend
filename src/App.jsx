@@ -10,6 +10,7 @@ import Callback from './pages/Callback'
 import Dashboard from './pages/Dashboard'
 import Transactions from './pages/Transactions'
 import Analytics from './pages/Analytics'
+import Chat from './pages/Chat'
 import Settings from './pages/Settings'
 import Onboarding from './pages/Onboarding'
 import NotFound from './pages/NotFound'
@@ -71,6 +72,7 @@ export default function App() {
                 <Route path="/" element={guarded(<Dashboard />)} />
                 <Route path="/transactions" element={guarded(<Transactions />)} />
                 <Route path="/analytics" element={guarded(<Analytics />)} />
+                <Route path="/chat" element={guarded(<Chat />)} />
                 <Route path="/settings" element={guarded(<Settings />)} />
                 <Route path="*" element={<NotFound />} />
               </Routes>

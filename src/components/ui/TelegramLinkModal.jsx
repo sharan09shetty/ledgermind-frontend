@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { parseISO, differenceInSeconds } from 'date-fns'
+import { QRCodeSVG } from 'qrcode.react'
 import { Check, ExternalLink, RefreshCw, Loader2 } from 'lucide-react'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { getTelegramLinkToken, getUserStatus } from '../../api/endpoints'
@@ -28,13 +29,12 @@ export default function TelegramLinkModal({ onClose }) {
     },
   })
 
-  // Request a link token as soon as the modal opens. The ref guard keeps
-  // StrictMode's double-mounted effect from firing two concurrent requests.
-  const tokenRequested = useRef(false)
+  // Request a link token as soon as the modal opens. Deferred through a
+  // cancelable timeout so StrictMode's mount→unmount→remount cycle fires
+  // exactly one request, and on the instance that survives.
   useEffect(() => {
-    if (tokenRequested.current) return
-    tokenRequested.current = true
-    tokenMutation.mutate()
+    const id = setTimeout(() => tokenMutation.mutate(), 0)
+    return () => clearTimeout(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -95,13 +95,14 @@ export default function TelegramLinkModal({ onClose }) {
           </>
         ) : (
           <>
-            {!isMobile && (
-              <div className="relative rounded-2xl border border-border bg-white p-2.5">
-                <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(deepLink ?? '')}`}
-                  alt="Scan to open the LedgerMind Telegram bot"
-                  width={160}
-                  height={160}
+            {!isMobile && deepLink && (
+              <div className="relative rounded-2xl border border-border bg-white p-3">
+                {/* Rendered locally — the link token never leaves the browser */}
+                <QRCodeSVG
+                  value={deepLink}
+                  size={160}
+                  level="M"
+                  aria-label="Scan to open the LedgerMind Telegram bot"
                   className={`block ${expired ? 'opacity-20' : ''}`}
                 />
                 {expired && (

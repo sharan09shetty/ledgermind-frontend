@@ -54,6 +54,17 @@ export const getMerchants = (from, to, topN = 10) =>
 export const getTransactions = (params) =>
     api.get('/analytics/transactions', { params }).then((r) => r.data)
 
+// ── Advisor chat ──────────────────────────────────────────────────────────────
+
+export const getChatHistory = () =>
+    api.get('/chat/history').then((r) => r.data)
+
+export const sendChatMessage = (message) =>
+    api.post('/chat/message', { message }).then((r) => r.data)
+
+export const clearChatHistory = () =>
+    api.delete('/chat/history').then((r) => r.data)
+
 // ── Cash log ──────────────────────────────────────────────────────────────────
 
 export const logCashTransaction = (description) =>

@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   LayoutDashboard, ArrowLeftRight, ChartNoAxesCombined, Settings,
-  LogOut, Mail, Send, Command,
+  LogOut, Mail, Send, Command, Sparkles,
 } from 'lucide-react'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { getUserStatus } from '../../api/endpoints'
@@ -14,6 +14,7 @@ const LINKS = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/transactions', label: 'Transactions', icon: ArrowLeftRight },
   { to: '/analytics', label: 'Analytics', icon: ChartNoAxesCombined },
+  { to: '/chat', label: 'Advisor', icon: Sparkles },
   { to: '/settings', label: 'Settings', icon: Settings },
 ]
 
