@@ -1,24 +1,261 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
-@theme {
-  --color-navy: #0F172A;
-  --color-navy-light: #1E293B;
-  --color-emerald: #10B981;
-  --color-rose: #F43F5E;
-  --color-slate: #64748B;
-  --color-surface: #F8FAFC;
-  --font-sans: 'Inter', system-ui, sans-serif;
+/* ────────────────────────────────────────────────────────────────────────────
+   LedgerMind design tokens.
+   Each theme sets the same set of CSS variables on <html data-theme="...">,
+   and Tailwind utilities are mapped onto them below — so `bg-card`,
+   `text-muted`, `border-border` etc. automatically follow the active theme.
+   ──────────────────────────────────────────────────────────────────────────── */
+
+:root,
+[data-theme='light'] {
+  --bg: #F6F8FB;
+  --card: #FFFFFF;
+  --elev: #F8FAFC;
+  --border: #E2E8F0;
+  --border-strong: #CBD5E1;
+  --text: #0F172A;
+  --sub: #475569;
+  --muted: #94A3B8;
+  --input: #FFFFFF;
+
+  --accent: #10B981;
+  --accent-strong: #059669;
+  --accent-soft: rgba(16, 185, 129, 0.1);
+  --accent-glow: rgba(16, 185, 129, 0.35);
+
+  --sidebar: #0F172A;
+  --sidebar-border: rgba(255, 255, 255, 0.06);
+  --sidebar-text: #94A3B8;
+  --sidebar-active: #34D399;
+  --sidebar-active-bg: rgba(52, 211, 153, 0.12);
+
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.04);
+  --shadow-pop: 0 8px 24px rgba(15, 23, 42, 0.12);
+  --shadow-modal: 0 24px 64px rgba(15, 23, 42, 0.25);
+
+  --chart-grid: #E2E8F0;
+  color-scheme: light;
 }
+
+[data-theme='dark'] {
+  --bg: #0F172A;
+  --card: #1E293B;
+  --elev: #273449;
+  --border: #334155;
+  --border-strong: #475569;
+  --text: #F1F5F9;
+  --sub: #94A3B8;
+  --muted: #64748B;
+  --input: #0F172A;
+
+  --accent: #34D399;
+  --accent-strong: #34D399;
+  --accent-soft: rgba(52, 211, 153, 0.12);
+  --accent-glow: rgba(52, 211, 153, 0.3);
+
+  --sidebar: #020617;
+  --sidebar-border: rgba(255, 255, 255, 0.06);
+  --sidebar-text: #94A3B8;
+  --sidebar-active: #34D399;
+  --sidebar-active-bg: rgba(52, 211, 153, 0.12);
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.25);
+  --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-modal: 0 24px 64px rgba(0, 0, 0, 0.6);
+
+  --chart-grid: #2C3B52;
+  color-scheme: dark;
+}
+
+[data-theme='midnight'] {
+  --bg: #09090B;
+  --card: #18181B;
+  --elev: #1F1F23;
+  --border: #27272A;
+  --border-strong: #3F3F46;
+  --text: #FAFAFA;
+  --sub: #A1A1AA;
+  --muted: #71717A;
+  --input: #09090B;
+
+  --accent: #A78BFA;
+  --accent-strong: #A78BFA;
+  --accent-soft: rgba(167, 139, 250, 0.12);
+  --accent-glow: rgba(167, 139, 250, 0.3);
+
+  --sidebar: #000000;
+  --sidebar-border: rgba(255, 255, 255, 0.07);
+  --sidebar-text: #71717A;
+  --sidebar-active: #A78BFA;
+  --sidebar-active-bg: rgba(167, 139, 250, 0.12);
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.55);
+  --shadow-modal: 0 24px 64px rgba(0, 0, 0, 0.7);
+
+  --chart-grid: #232327;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+
+  /* Theme-driven palette */
+  --color-bg: var(--bg);
+  --color-card: var(--card);
+  --color-elev: var(--elev);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-sub: var(--sub);
+  --color-muted: var(--muted);
+  --color-input: var(--input);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-text: var(--sidebar-text);
+  --color-sidebar-active: var(--sidebar-active);
+  --color-sidebar-active-bg: var(--sidebar-active-bg);
+
+  /* Fixed semantic colors (identical in every theme) */
+  --color-success: #10B981;
+  --color-danger: #F43F5E;
+  --color-warning: #F59E0B;
+  --color-info: #3B82F6;
+
+  --shadow-card: var(--shadow-card);
+  --shadow-pop: var(--shadow-pop);
+  --shadow-modal: var(--shadow-modal);
+
+  --animate-fade-in: fade-in 0.25s ease both;
+  --animate-fade-in-up: fade-in-up 0.35s cubic-bezier(0.21, 1.02, 0.73, 1) both;
+  --animate-scale-in: scale-in 0.2s cubic-bezier(0.21, 1.02, 0.73, 1) both;
+  --animate-slide-up: slide-up 0.3s cubic-bezier(0.21, 1.02, 0.73, 1) both;
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  --animate-pop: pop 0.4s cubic-bezier(0.18, 1.4, 0.4, 1) both;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+@keyframes pop {
+  0% { opacity: 0; transform: scale(0.5); }
+  70% { transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* ── Base ──────────────────────────────────────────────────────────────────── */
 
 * {
   box-sizing: border-box;
 }
 
-body {
-  font-family: var(--font-sans);
-  background-color: #F8FAFC;
-  color: #0F172A;
-  margin: 0;
+html {
+  -webkit-text-size-adjust: 100%;
 }
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background-color: var(--bg);
+  color: var(--text);
+  transition: background-color 0.25s ease, color 0.25s ease;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+}
+
+/* Amounts and tables read better with lining, equal-width digits */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Accessible, theme-aware focus rings — only for keyboard navigation */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+/* Subtle themed scrollbars (WebKit) */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 99px;
+  border: 3px solid var(--bg);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+/* Native form controls follow the theme */
+input,
+select,
+textarea,
+button {
+  font-family: inherit;
+}
+
+select option {
+  background: var(--card);
+  color: var(--text);
+}
+
+/* Skeleton shimmer surface */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--elev) 25%,
+    var(--border) 50%,
+    var(--elev) 75%
+  );
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
+  border-radius: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,59 +1,76 @@
-import { useState } from 'react'
+import { useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis,
-  CartesianGrid, Tooltip, ResponsiveContainer
+  AreaChart, Area, BarChart, Bar, LineChart, Line, XAxis, YAxis,
+  CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts'
+import {
+  TrendingUp, TrendingDown, ChartNoAxesCombined, ArrowRight,
+  ArrowUpRight, ArrowDownLeft, CalendarClock, Wallet,
+} from 'lucide-react'
 import Layout from '../components/layout/Layout'
-import CashLogModal from '../components/ui/CashLogModal'
+import DateRangePicker from '../components/ui/DateRangePicker'
 import ErrorState from '../components/ui/ErrorState'
+import EmptyState from '../components/ui/EmptyState'
+import { Skeleton, SkeletonStatCard, SkeletonChart } from '../components/ui/Skeleton'
 import { useTheme } from '../context/ThemeContext'
-import { useIsMobile } from '../hooks/useIsMobile'
+import { useDateRange } from '../context/DateRangeContext'
 import { getTransactions, getCategories, getMerchants } from '../api/endpoints'
-import { formatCurrency, toApiDateTime } from '../utils/date'
-import { subDays, startOfDay, endOfDay, format, eachDayOfInterval, parseISO } from 'date-fns'
+import { formatCurrency } from '../utils/date'
+import { categoryColor, categoryLabel, CategoryIcon } from '../utils/categories'
+import { format, eachDayOfInterval, parseISO, differenceInCalendarDays, getDay } from 'date-fns'
 
-const now = new Date()
-const from30 = toApiDateTime(startOfDay(subDays(now, 29)))
-const to30 = toApiDateTime(endOfDay(now))
-const monthFrom = toApiDateTime(startOfDay(new Date(now.getFullYear(), now.getMonth(), 1)))
-const monthTo = toApiDateTime(endOfDay(now))
+const compact = (v) => (v >= 100000 ? `₹${(v / 100000).toFixed(1)}L` : v >= 1000 ? `₹${(v / 1000).toFixed(0)}k` : `₹${Math.round(v)}`)
 
-const CATEGORY_COLORS = {
-  FOOD: '#F59E0B', TRAVEL: '#3B82F6', SHOPPING: '#8B5CF6', BILLS: '#6B7280',
-  ENTERTAINMENT: '#EC4899', HEALTH: '#10B981', INVESTMENT: '#14B8A6',
-  SALARY: '#22C55E', TRANSFER: '#64748B', OTHER: '#CBD5E1',
+function DeltaBadge({ current, previous, invert = false }) {
+  if (previous == null || previous === 0) return null
+  const pct = ((current - previous) / previous) * 100
+  if (!Number.isFinite(pct)) return null
+  const up = pct > 0
+  // For spending, up is bad; for income, up is good
+  const good = invert ? up : !up
+  return (
+    <span
+      className={`tnum inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+        good ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger'
+      }`}
+      title="vs previous period"
+    >
+      {up ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+      {Math.abs(pct).toFixed(0)}%
+    </span>
+  )
 }
 
-// Truncate long merchant names for Y-axis labels
-const truncate = (str, max = 14) =>
-    str && str.length > max ? str.slice(0, max) + '…' : str
-
-// Custom Y-axis tick to truncate merchant names
-const MerchantTick = ({ x, y, payload, theme }) => (
-    <text x={x} y={y} dy={4} textAnchor="end" fill={theme.textSub} fontSize={11}>
-      {truncate(payload.value, 13)}
-    </text>
-)
-
 export default function Analytics() {
-  const [showCashLog, setShowCashLog] = useState(false)
   const { theme } = useTheme()
-  const isMobile = useIsMobile()
+  const navigate = useNavigate()
+  const { from, to, prevFrom, prevTo, label, prevLabel, mode, rangeStart, rangeEnd } = useDateRange()
 
-  const { data: txnData, isLoading, isError: txnError, refetch: refetchTxn, isFetching: txnFetching } = useQuery({
-    queryKey: ['analytics-txns', from30, to30],
-    queryFn: () => getTransactions({ from: from30, to: to30, page: 0, size: 500 }),
+  const { data: txnData, isLoading: txnsLoading, isError: txnError, refetch: refetchTxn, isFetching: txnFetching } = useQuery({
+    queryKey: ['analytics-txns', from, to],
+    queryFn: () => getTransactions({ from, to, page: 0, size: 500 }),
   })
 
-  const { data: categories = [], isError: categoriesError, refetch: refetchCategories, isFetching: categoriesFetching } = useQuery({
-    queryKey: ['categories', monthFrom, monthTo],
-    queryFn: () => getCategories(monthFrom, monthTo),
+  const { data: prevTxnData, isLoading: prevLoading } = useQuery({
+    queryKey: ['analytics-txns', prevFrom, prevTo],
+    queryFn: () => getTransactions({ from: prevFrom, to: prevTo, page: 0, size: 500 }),
+  })
+
+  const { data: categories = [], isLoading: categoriesLoading, isError: categoriesError, refetch: refetchCategories, isFetching: categoriesFetching } = useQuery({
+    queryKey: ['categories', from, to],
+    queryFn: () => getCategories(from, to),
+  })
+
+  const { data: prevCategories = [] } = useQuery({
+    queryKey: ['categories', prevFrom, prevTo],
+    queryFn: () => getCategories(prevFrom, prevTo),
   })
 
   const { data: merchants = [], isError: merchantsError, refetch: refetchMerchants, isFetching: merchantsFetching } = useQuery({
-    queryKey: ['merchants', monthFrom, monthTo, 10],
-    queryFn: () => getMerchants(monthFrom, monthTo, 10),
+    queryKey: ['merchants', from, to, 8],
+    queryFn: () => getMerchants(from, to, 8),
   })
 
   const hasError = txnError || categoriesError || merchantsError
@@ -64,182 +81,338 @@ export default function Analytics() {
     refetchMerchants()
   }
 
-  const dailyChart = (() => {
-    const txns = txnData?.content ?? []
-    const days = eachDayOfInterval({ start: subDays(now, 29), end: now })
-    const map = {}
-    days.forEach((d) => { map[format(d, 'MMM d')] = { label: format(d, 'MMM d'), spent: 0, received: 0 } })
+  const txns = useMemo(() => txnData?.content ?? [], [txnData])
+  const prevTxns = useMemo(() => prevTxnData?.content ?? [], [prevTxnData])
+
+  // ── Derived series ─────────────────────────────────────────────────────────
+
+  const daily = useMemo(() => {
+    const days = eachDayOfInterval({ start: rangeStart, end: rangeEnd })
+    const map = new Map(days.map((d) => [format(d, 'MMM d'), { label: format(d, 'MMM d'), spent: 0, received: 0 }]))
     txns.forEach((t) => {
       const key = format(parseISO(t.transactionTime), 'MMM d')
-      if (!map[key]) return
-      if (t.transactionType === 'DEBIT') map[key].spent += Number(t.amount)
-      else map[key].received += Number(t.amount)
+      const row = map.get(key)
+      if (!row) return
+      if (t.transactionType === 'DEBIT') row.spent += Number(t.amount)
+      else row.received += Number(t.amount)
     })
-    return Object.values(map)
-  })()
+    return [...map.values()]
+  }, [txns, rangeStart, rangeEnd])
 
-  const totalSpent30 = dailyChart.reduce((s, d) => s + d.spent, 0)
-  const totalReceived30 = dailyChart.reduce((s, d) => s + d.received, 0)
-  const avgDaily = totalSpent30 / 30
+  const cumulative = useMemo(() => {
+    const build = (list, start) => {
+      const byDay = {}
+      list.forEach((t) => {
+        if (t.transactionType !== 'DEBIT') return
+        const idx = differenceInCalendarDays(parseISO(t.transactionTime), parseISO(start)) + 1
+        byDay[idx] = (byDay[idx] ?? 0) + Number(t.amount)
+      })
+      return byDay
+    }
+    const cur = build(txns, from)
+    const prev = build(prevTxns, prevFrom)
+    const curDays = differenceInCalendarDays(rangeEnd, rangeStart) + 1
+    const maxDay = Math.max(curDays, ...Object.keys(prev).map(Number), 1)
+    const rows = []
+    let curSum = 0
+    let prevSum = 0
+    for (let d = 1; d <= maxDay; d++) {
+      curSum += cur[d] ?? 0
+      prevSum += prev[d] ?? 0
+      rows.push({
+        day: d,
+        current: d <= curDays ? curSum : null,
+        previous: prevSum,
+      })
+    }
+    return rows
+  }, [txns, prevTxns, from, prevFrom, rangeStart, rangeEnd])
 
-  const card = {
-    background: theme.card, borderRadius: '20px',
-    border: `1px solid ${theme.cardBorder}`,
-    boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-  }
+  const byWeekday = useMemo(() => {
+    const names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    const rows = names.map((name) => ({ name, spent: 0 }))
+    txns.forEach((t) => {
+      if (t.transactionType !== 'DEBIT') return
+      const idx = (getDay(parseISO(t.transactionTime)) + 6) % 7 // Monday-first
+      rows[idx].spent += Number(t.amount)
+    })
+    return rows
+  }, [txns])
+
+  const totals = useMemo(() => {
+    const sum = (list, type) => list.filter((t) => t.transactionType === type).reduce((s, t) => s + Number(t.amount), 0)
+    const spent = sum(txns, 'DEBIT')
+    const received = sum(txns, 'CREDIT')
+    const prevSpent = sum(prevTxns, 'DEBIT')
+    const prevReceived = sum(prevTxns, 'CREDIT')
+    const dayCount = Math.max(differenceInCalendarDays(rangeEnd, rangeStart) + 1, 1)
+    const busiest = daily.reduce((best, d) => (d.spent > (best?.spent ?? 0) ? d : best), null)
+    return { spent, received, prevSpent, prevReceived, avgDaily: spent / dayCount, busiest }
+  }, [txns, prevTxns, daily, rangeStart, rangeEnd])
+
+  const prevCatByKey = useMemo(
+    () => Object.fromEntries(prevCategories.map((c) => [c.category, Number(c.totalSpend)])),
+    [prevCategories],
+  )
+
+  const isLoadingAll = txnsLoading || categoriesLoading
+  const isEmpty = !isLoadingAll && txns.length === 0
 
   const tooltipStyle = {
-    fontSize: '12px', borderRadius: '10px',
-    border: `1px solid ${theme.cardBorder}`,
-    background: theme.card, color: theme.text,
-    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+    fontSize: 12,
+    borderRadius: 12,
+    border: `1px solid ${theme.chart.tooltipBorder}`,
+    background: theme.chart.tooltipBg,
+    color: theme.chart.text,
+    boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
   }
+  const tick = { fontSize: 10, fill: theme.chart.tick }
+
+  const cardCls = 'min-w-0 rounded-3xl border border-border bg-card p-5 shadow-card'
+  const sectionLabel = 'm-0 mb-4 text-[11px] font-bold uppercase tracking-[0.1em] text-muted'
 
   return (
-      <Layout>
-        <div style={{
-          display: 'flex',
-          flexDirection: isMobile ? 'column' : 'row',
-          alignItems: isMobile ? 'stretch' : 'flex-start',
-          justifyContent: 'space-between', gap: isMobile ? '14px' : 0, marginBottom: '28px',
-        }}>
-          <div>
-            <p style={{ fontSize: '11px', fontWeight: 600, color: theme.textMuted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>Analytics</p>
-            <h1 style={{ fontSize: isMobile ? '24px' : '28px', fontWeight: 800, color: theme.text, letterSpacing: '-0.02em', margin: 0 }}>Last 30 Days</h1>
-          </div>
-          <button
-              onClick={() => setShowCashLog(true)}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '9px 18px', borderRadius: '12px', border: 'none', background: '#10B981', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
-          >
-            + Cash
-          </button>
+    <Layout>
+      {/* Header */}
+      <div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-end">
+        <div>
+          <p className="m-0 text-[11px] font-bold uppercase tracking-[0.12em] text-muted">Analytics</p>
+          <h1 className="m-0 mt-1 text-2xl font-extrabold tracking-tight text-text md:text-[28px]">
+            {mode === 'last30' ? 'Last 30 days' : label}
+          </h1>
         </div>
+        <DateRangePicker />
+      </div>
 
-        {hasError ? (
-            <ErrorState
-                title="We're having trouble loading your analytics"
-                onRetry={retryAll}
-                isRetrying={isRetrying}
-            />
-        ) : (
-            <>
-              {/* Quick stats */}
-              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: '12px', marginBottom: '20px' }}>
-                {[
-                  { label: 'Total Spent', value: formatCurrency(totalSpent30), dot: '#F43F5E' },
-                  { label: 'Total Received', value: formatCurrency(totalReceived30), dot: '#10B981' },
-                  { label: 'Daily Average', value: formatCurrency(avgDaily), dot: '#3B82F6' },
-                ].map(({ label, value, dot }) => (
-                    <div key={label} style={{ ...card, padding: '16px 20px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: dot, flexShrink: 0 }} />
-                        <p style={{ fontSize: '11px', fontWeight: 500, color: theme.textMuted, margin: 0 }}>{label}</p>
+      {hasError ? (
+        <ErrorState title="We're having trouble loading your analytics" onRetry={retryAll} isRetrying={isRetrying} />
+      ) : isEmpty ? (
+        <div className="rounded-3xl border border-border bg-card shadow-card">
+          <EmptyState
+            icon={ChartNoAxesCombined}
+            title="Nothing to analyze yet"
+            message={`No transactions found for ${mode === 'last30' ? 'the last 30 days' : label}. Once transactions come in, you'll see trends, comparisons and patterns here.`}
+            action="Go to transactions"
+            actionIcon={ArrowRight}
+            onAction={() => navigate('/transactions')}
+          />
+        </div>
+      ) : (
+        <>
+          {/* Stat cards with period-over-period deltas */}
+          <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {isLoadingAll ? (
+              <><SkeletonStatCard /><SkeletonStatCard /><SkeletonStatCard /><SkeletonStatCard /></>
+            ) : (
+              [
+                {
+                  label: 'Total spent', icon: ArrowUpRight, tone: 'bg-danger/10 text-danger',
+                  value: formatCurrency(totals.spent),
+                  delta: <DeltaBadge current={totals.spent} previous={totals.prevSpent} />,
+                  sub: `vs ${prevLabel}`,
+                },
+                {
+                  label: 'Total received', icon: ArrowDownLeft, tone: 'bg-success/10 text-success',
+                  value: formatCurrency(totals.received),
+                  delta: <DeltaBadge current={totals.received} previous={totals.prevReceived} invert />,
+                  sub: `vs ${prevLabel}`,
+                },
+                {
+                  label: 'Daily average', icon: Wallet, tone: 'bg-info/10 text-info',
+                  value: formatCurrency(totals.avgDaily),
+                  sub: 'spend per day',
+                },
+                {
+                  label: 'Biggest day', icon: CalendarClock, tone: 'bg-accent-soft text-accent-strong',
+                  value: totals.busiest?.spent ? formatCurrency(totals.busiest.spent) : '—',
+                  sub: totals.busiest?.spent ? totals.busiest.label : 'no spending yet',
+                },
+              ].map(({ label: l, icon: Icon, tone, value, delta, sub }) => (
+                <div key={l} className="min-w-0 rounded-2xl border border-border bg-card p-4 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-pop">
+                  <div className="mb-2.5 flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-2">
+                      <span className={`grid h-7 w-7 place-items-center rounded-lg ${tone}`}><Icon size={14} /></span>
+                      <span className="text-xs font-medium text-muted">{l}</span>
+                    </span>
+                    {delta}
+                  </div>
+                  <p className="tnum m-0 truncate text-lg font-bold text-text">{value}</p>
+                  {sub && <p className="m-0 mt-1 text-[11px] text-muted">{sub}</p>}
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Daily flow */}
+          <div className={`${cardCls} mb-4`}>
+            <p className={sectionLabel}>Daily spend & income</p>
+            {txnsLoading ? (
+              <SkeletonChart height={220} />
+            ) : (
+              <ResponsiveContainer width="100%" height={230}>
+                <AreaChart data={daily} margin={{ left: 0, right: 8, top: 4 }}>
+                  <defs>
+                    <linearGradient id="spentGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#F43F5E" stopOpacity={0.25} />
+                      <stop offset="100%" stopColor="#F43F5E" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="receivedGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#10B981" stopOpacity={0.25} />
+                      <stop offset="100%" stopColor="#10B981" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke={theme.chart.grid} vertical={false} />
+                  <XAxis dataKey="label" tick={tick} axisLine={false} tickLine={false} interval={Math.max(Math.floor(daily.length / 7) - 1, 0)} />
+                  <YAxis tickFormatter={compact} tick={tick} axisLine={false} tickLine={false} width={48} />
+                  <Tooltip
+                    formatter={(v, name) => [formatCurrency(v), name === 'spent' ? 'Spent' : 'Received']}
+                    contentStyle={tooltipStyle}
+                    labelStyle={{ color: theme.chart.sub, fontWeight: 600 }}
+                  />
+                  <Area type="monotone" dataKey="spent" stroke="#F43F5E" strokeWidth={2} fill="url(#spentGrad)" dot={false} name="spent" />
+                  <Area type="monotone" dataKey="received" stroke="#10B981" strokeWidth={2} fill="url(#receivedGrad)" dot={false} name="received" />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          {/* Cumulative comparison + weekday pattern */}
+          <div className="mb-4 grid gap-4 lg:grid-cols-2">
+            <div className={cardCls}>
+              <p className={sectionLabel}>Cumulative spend · {mode === 'last30' ? 'vs previous 30 days' : `vs ${prevLabel}`}</p>
+              {txnsLoading || prevLoading ? (
+                <SkeletonChart height={200} />
+              ) : (
+                <ResponsiveContainer width="100%" height={210}>
+                  <LineChart data={cumulative} margin={{ left: 0, right: 8, top: 4 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={theme.chart.grid} vertical={false} />
+                    <XAxis dataKey="day" tick={tick} axisLine={false} tickLine={false} tickFormatter={(d) => `D${d}`} />
+                    <YAxis tickFormatter={compact} tick={tick} axisLine={false} tickLine={false} width={48} />
+                    <Tooltip
+                      formatter={(v, name) => [formatCurrency(v), name === 'current' ? 'This period' : 'Previous']}
+                      labelFormatter={(d) => `Day ${d}`}
+                      contentStyle={tooltipStyle}
+                      labelStyle={{ color: theme.chart.sub, fontWeight: 600 }}
+                    />
+                    <Legend
+                      formatter={(v) => (
+                        <span style={{ color: theme.chart.sub, fontSize: 11 }}>{v === 'current' ? 'This period' : 'Previous period'}</span>
+                      )}
+                      iconType="plainline"
+                    />
+                    <Line type="monotone" dataKey="previous" stroke={theme.chart.tick} strokeWidth={1.5} strokeDasharray="5 4" dot={false} name="previous" />
+                    <Line type="monotone" dataKey="current" stroke={theme.accent} strokeWidth={2.5} dot={false} name="current" />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+
+            <div className={cardCls}>
+              <p className={sectionLabel}>Spending by day of week</p>
+              {txnsLoading ? (
+                <SkeletonChart height={200} />
+              ) : (
+                <ResponsiveContainer width="100%" height={210}>
+                  <BarChart data={byWeekday} margin={{ left: 0, right: 8, top: 4 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={theme.chart.grid} vertical={false} />
+                    <XAxis dataKey="name" tick={tick} axisLine={false} tickLine={false} />
+                    <YAxis tickFormatter={compact} tick={tick} axisLine={false} tickLine={false} width={48} />
+                    <Tooltip
+                      formatter={(v) => [formatCurrency(v), 'Spent']}
+                      contentStyle={tooltipStyle}
+                      labelStyle={{ color: theme.chart.sub, fontWeight: 600 }}
+                      cursor={{ fill: theme.chart.grid, opacity: 0.35 }}
+                    />
+                    <Bar dataKey="spent" fill={theme.accent} radius={[6, 6, 0, 0]} maxBarSize={36} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+
+          {/* Categories with deltas + top merchants */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className={cardCls}>
+              <p className={sectionLabel}>Category trends</p>
+              {categoriesLoading ? (
+                <div className="space-y-4">
+                  {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}
+                </div>
+              ) : categories.length === 0 ? (
+                <EmptyState compact icon={ChartNoAxesCombined} title="No category data" message="Spending will be broken down by category here." />
+              ) : (
+                <div className="flex flex-col gap-4">
+                  {categories.map((c) => {
+                    const color = categoryColor(c.category)
+                    const prev = prevCatByKey[c.category]
+                    return (
+                      <div key={c.category}>
+                        <div className="mb-1.5 flex items-center justify-between gap-2">
+                          <span className="flex min-w-0 flex-1 items-center gap-2">
+                            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md" style={{ background: `${color}1f`, color }}>
+                              <CategoryIcon category={c.category} size={12} />
+                            </span>
+                            <span className="truncate text-xs font-semibold text-text">{categoryLabel(c.category)}</span>
+                            <span className="shrink-0 text-[11px] text-muted">· {c.transactionCount} txns</span>
+                          </span>
+                          <span className="flex shrink-0 items-center gap-2">
+                            <DeltaBadge current={Number(c.totalSpend)} previous={prev} />
+                            <span className="tnum text-xs font-bold text-text">{formatCurrency(c.totalSpend)}</span>
+                          </span>
+                        </div>
+                        <div className="h-1.5 overflow-hidden rounded-full bg-elev">
+                          <div
+                            className="h-full rounded-full transition-all duration-700"
+                            style={{ background: color, width: `${Math.min(c.percentageShare ?? 0, 100)}%` }}
+                          />
+                        </div>
                       </div>
-                      <p style={{ fontSize: '20px', fontWeight: 800, color: theme.text, margin: 0 }}>{value}</p>
-                    </div>
-                ))}
-              </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
 
-              {/* Daily area chart */}
-              <div style={{ ...card, padding: '20px', marginBottom: '16px' }}>
-                <p style={{ fontSize: '11px', fontWeight: 600, color: theme.textMuted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '16px' }}>Daily Spend & Income</p>
-                {isLoading ? (
-                    <div style={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.textMuted, fontSize: '13px' }}>Loading...</div>
-                ) : (
-                    <ResponsiveContainer width="100%" height={220}>
-                      <AreaChart data={dailyChart} margin={{ left: 0, right: 8, top: 4 }}>
-                        <defs>
-                          <linearGradient id="spentGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#F43F5E" stopOpacity={0.2} />
-                            <stop offset="100%" stopColor="#F43F5E" stopOpacity={0} />
-                          </linearGradient>
-                          <linearGradient id="receivedGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#10B981" stopOpacity={0.2} />
-                            <stop offset="100%" stopColor="#10B981" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke={theme.cardBorder} vertical={false} />
-                        <XAxis dataKey="label" tick={{ fontSize: 10, fill: theme.textMuted }} axisLine={false} tickLine={false} interval={4} />
-                        <YAxis tickFormatter={(v) => v >= 1000 ? `₹${(v / 1000).toFixed(0)}k` : `₹${v}`} tick={{ fontSize: 10, fill: theme.textMuted }} axisLine={false} tickLine={false} />
-                        <Tooltip formatter={(v, name) => [formatCurrency(v), name === 'spent' ? 'Spent' : 'Received']} contentStyle={tooltipStyle} labelStyle={{ color: theme.textSub, fontWeight: 500 }} />
-                        <Area type="monotone" dataKey="spent" stroke="#F43F5E" strokeWidth={2} fill="url(#spentGrad)" dot={false} name="spent" />
-                        <Area type="monotone" dataKey="received" stroke="#10B981" strokeWidth={2} fill="url(#receivedGrad)" dot={false} name="received" />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                )}
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px' }}>
-                {/* Category bars */}
-                <div style={{ ...card, padding: '20px' }}>
-                  <p style={{ fontSize: '11px', fontWeight: 600, color: theme.textMuted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '16px' }}>Categories This Month</p>
-                  {categories.length === 0 ? (
-                      <p style={{ fontSize: '13px', color: theme.textMuted, textAlign: 'center', padding: '24px 0' }}>No data yet</p>
-                  ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                        {categories.map((c) => (
-                            <div key={c.category}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: CATEGORY_COLORS[c.category] ?? '#CBD5E1', flexShrink: 0 }} />
-                                  <span style={{ fontSize: '12px', fontWeight: 500, color: theme.text }}>{c.category}</span>
-                                  <span style={{ fontSize: '11px', color: theme.textMuted }}>· {c.transactionCount} txns</span>
-                                </div>
-                                <span style={{ fontSize: '12px', fontWeight: 700, color: theme.text }}>{formatCurrency(c.totalSpend)}</span>
-                              </div>
-                              <div style={{ height: '5px', borderRadius: '99px', background: theme.inputBorder, overflow: 'hidden' }}>
-                                <div style={{ height: '100%', borderRadius: '99px', background: CATEGORY_COLORS[c.category] ?? '#CBD5E1', width: `${c.percentageShare ?? 0}%`, transition: 'width 0.7s ease' }} />
-                              </div>
+            <div className={cardCls}>
+              <p className={sectionLabel}>Top merchants</p>
+              {merchants.filter((m) => m.merchant).length === 0 ? (
+                <EmptyState compact icon={ChartNoAxesCombined} title="No merchant data" message="Your most-visited merchants will rank here." />
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {(() => {
+                    const list = merchants.filter((m) => m.merchant)
+                    const max = Math.max(...list.map((m) => Number(m.totalSpend)), 1)
+                    return list.map((m, i) => {
+                      const color = categoryColor(m.topCategory)
+                      return (
+                        <div key={m.merchant} className="flex items-center gap-3">
+                          <span className="tnum w-5 shrink-0 text-center text-[11px] font-bold text-muted">{i + 1}</span>
+                          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-xs font-bold text-white" style={{ background: color }}>
+                            {m.merchant[0]?.toUpperCase()}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="mb-1 flex items-center justify-between gap-2">
+                              <span className="truncate text-xs font-semibold text-text">{m.merchant}</span>
+                              <span className="tnum shrink-0 text-xs font-bold text-text">{formatCurrency(m.totalSpend)}</span>
                             </div>
-                        ))}
-                      </div>
-                  )}
+                            <div className="h-1 overflow-hidden rounded-full bg-elev">
+                              <div
+                                className="h-full rounded-full transition-all duration-700"
+                                style={{ background: color, width: `${(Number(m.totalSpend) / max) * 100}%` }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })
+                  })()}
                 </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
-                {/* Merchant bar chart — fixed with truncated labels */}
-                <div style={{ ...card, padding: '20px' }}>
-                  <p style={{ fontSize: '11px', fontWeight: 600, color: theme.textMuted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '16px' }}>Top Merchants This Month</p>
-                  {merchants.length === 0 ? (
-                      <p style={{ fontSize: '13px', color: theme.textMuted, textAlign: 'center', padding: '24px 0' }}>No data yet</p>
-                  ) : (
-                      <ResponsiveContainer width="100%" height={Math.max(220, merchants.filter((m) => m.merchant).length * 32)}>
-                        <BarChart
-                            data={merchants.filter((m) => m.merchant)}
-                            layout="vertical"
-                            barCategoryGap="25%"
-                            margin={{ left: 8, right: 24, top: 0, bottom: 0 }}
-                        >
-                          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={theme.cardBorder} />
-                          <XAxis
-                              type="number"
-                              tickFormatter={(v) => v >= 1000 ? `₹${(v / 1000).toFixed(0)}k` : `₹${v}`}
-                              tick={{ fontSize: 10, fill: theme.textMuted }}
-                              axisLine={false}
-                              tickLine={false}
-                          />
-                          <YAxis
-                              type="category"
-                              dataKey="merchant"
-                              width={100}
-                              axisLine={false}
-                              tickLine={false}
-                              tick={(props) => <MerchantTick {...props} theme={theme} />}
-                          />
-                          <Tooltip
-                              formatter={(v) => [formatCurrency(v), 'Spent']}
-                              contentStyle={tooltipStyle}
-                              labelFormatter={(label) => label}
-                          />
-                          <Bar dataKey="totalSpend" fill="#3B82F6" radius={[0, 6, 6, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                  )}
-                </div>
-              </div>
-            </>
-        )}
-
-        {showCashLog && <CashLogModal onClose={() => setShowCashLog(false)} />}
-      </Layout>
+    </Layout>
   )
 }

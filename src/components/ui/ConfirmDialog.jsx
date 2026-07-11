@@ -1,9 +1,9 @@
-import { createPortal } from 'react-dom'
-import { useTheme } from '../../context/ThemeContext'
-import { useIsMobile } from '../../hooks/useIsMobile'
+import { AlertTriangle } from 'lucide-react'
+import Modal from './Modal'
+import Button from './Button'
 
-function Modal({
-  icon = '⚠️',
+export default function ConfirmDialog({
+  icon: Icon = AlertTriangle,
   title,
   message,
   confirmLabel = 'Confirm',
@@ -11,86 +11,37 @@ function Modal({
   confirmingLabel,
   isConfirming = false,
   danger = true,
+  children,
   onConfirm,
   onCancel,
 }) {
-  const { theme } = useTheme()
-  const isMobile = useIsMobile()
-  const accent = danger ? '#F43F5E' : theme.sidebarActive
-
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        style={{ position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}
-        onClick={isConfirming ? undefined : onCancel}
-      />
-
-      {/* Modal card */}
-      <div style={{
-        position: 'fixed',
-        top: isMobile ? 'auto' : '50%',
-        bottom: isMobile ? 0 : 'auto',
-        left: isMobile ? 0 : '50%',
-        right: isMobile ? 0 : 'auto',
-        transform: isMobile ? 'none' : 'translate(-50%, -50%)',
-        zIndex: 9999,
-        width: isMobile ? '100%' : '340px',
-        background: theme.card,
-        borderRadius: isMobile ? '20px 20px 0 0' : '20px',
-        border: `1px solid ${theme.cardBorder}`,
-        boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
-        boxSizing: 'border-box',
-        overflow: 'hidden',
-      }}>
-        <div style={{ padding: '24px 20px 20px', textAlign: 'center' }}>
-          <div style={{
-            width: '48px', height: '48px', borderRadius: '50%',
-            background: danger ? 'rgba(244,63,94,0.12)' : `${accent}22`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px',
-            margin: '0 auto 14px',
-          }}>
-            {icon}
-          </div>
-          <p style={{ fontWeight: 700, color: theme.text, fontSize: '15px', margin: 0 }}>{title}</p>
-          {message && (
-              <p style={{ fontSize: '12px', color: theme.textMuted, marginTop: '6px', lineHeight: 1.5 }}>
-                {message}
-              </p>
-          )}
+    <Modal onClose={onCancel} dismissible={!isConfirming} hideHeader width="max-w-[360px]">
+      <div className="px-5 pb-5 pt-6 text-center">
+        <div
+          className={`animate-pop mx-auto mb-3.5 grid h-12 w-12 place-items-center rounded-full ${
+            danger ? 'bg-danger/10 text-danger' : 'bg-accent-soft text-accent-strong'
+          }`}
+        >
+          <Icon size={22} />
         </div>
-
-        <div style={{ display: 'flex', gap: '8px', padding: '0 20px 20px' }}>
-          <button
-              onClick={onCancel}
-              disabled={isConfirming}
-              style={{
-                flex: 1, padding: '11px', borderRadius: '12px', border: `1.5px solid ${theme.inputBorder}`,
-                fontSize: '13px', fontWeight: 600, color: theme.textSub, background: 'transparent',
-                cursor: isConfirming ? 'default' : 'pointer', opacity: isConfirming ? 0.6 : 1,
-              }}
-          >
+        <p className="m-0 text-[15px] font-bold text-text">{title}</p>
+        {message && <p className="m-0 mt-1.5 text-xs leading-relaxed text-muted">{message}</p>}
+        {children}
+        <div className="mt-5 flex gap-2">
+          <Button variant="secondary" className="flex-1" disabled={isConfirming} onClick={onCancel}>
             {cancelLabel}
-          </button>
-          <button
-              onClick={onConfirm}
-              disabled={isConfirming}
-              style={{
-                flex: 1, padding: '11px', borderRadius: '12px', border: 'none',
-                fontSize: '13px', fontWeight: 600, color: 'white', background: accent,
-                cursor: isConfirming ? 'default' : 'pointer', opacity: isConfirming ? 0.6 : 1,
-                transition: 'opacity 0.15s',
-              }}
+          </Button>
+          <Button
+            variant={danger ? 'danger' : 'primary'}
+            className="flex-1"
+            loading={isConfirming}
+            onClick={onConfirm}
           >
-            {isConfirming ? (confirmingLabel ?? `${confirmLabel}…`) : confirmLabel}
-          </button>
+            {isConfirming ? (confirmingLabel ?? confirmLabel) : confirmLabel}
+          </Button>
         </div>
       </div>
-    </>
+    </Modal>
   )
-}
-
-// Portal wrapper — renders outside Layout's DOM tree, fixing z-index issues
-export default function ConfirmDialog(props) {
-  return createPortal(<Modal {...props} />, document.body)
 }

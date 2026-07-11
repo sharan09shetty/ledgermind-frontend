@@ -20,6 +20,9 @@ export const disconnectGmail = () =>
 export const getUserStatus = () =>
     api.get('/users/status').then((r) => r.data)
 
+export const completeOnboarding = () =>
+    api.post('/users/onboarding/complete').then((r) => r.data)
+
 export const setBank = (code) =>
     api.patch(`/users/bank?code=${code}`).then((r) => r.data)
 

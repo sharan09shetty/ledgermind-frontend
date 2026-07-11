@@ -1,21 +1,75 @@
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import {
+  Mail, Send, Landmark, LogOut, Check, RotateCcw, Palette, UserRound, Unplug,
+} from 'lucide-react'
 import Layout from '../components/layout/Layout'
 import ErrorState from '../components/ui/ErrorState'
 import TelegramLinkModal from '../components/ui/TelegramLinkModal'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
+import Button from '../components/ui/Button'
+import { Select } from '../components/ui/Field'
 import { useTheme, THEMES } from '../context/ThemeContext'
+import { useToast } from '../context/ToastContext'
 import { getUserStatus, getBanks, setBank, connectGmail, disconnectGmail, unlinkTelegram } from '../api/endpoints'
+
+function SectionCard({ icon: Icon, title, description, children }) {
+  return (
+    <div className="min-w-0 rounded-3xl border border-border bg-card p-5 shadow-card">
+      <div className="mb-4 flex items-center gap-2.5">
+        <span className="grid h-8 w-8 place-items-center rounded-xl bg-accent-soft text-accent-strong">
+          <Icon size={15} />
+        </span>
+        <div>
+          <p className="m-0 text-[13px] font-bold text-text">{title}</p>
+          {description && <p className="m-0 mt-0.5 text-xs text-muted">{description}</p>}
+        </div>
+      </div>
+      {children}
+    </div>
+  )
+}
+
+function StatusPill({ ok, okLabel, offLabel }) {
+  return (
+    <span
+      className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
+        ok ? 'bg-success/10 text-success' : 'bg-elev text-muted'
+      }`}
+    >
+      {ok ? `✓ ${okLabel}` : offLabel}
+    </span>
+  )
+}
+
+function ThemePreview({ preview }) {
+  return (
+    <div
+      className="flex h-12 w-full overflow-hidden rounded-lg border"
+      style={{ background: preview.bg, borderColor: preview.line }}
+      aria-hidden="true"
+    >
+      <div className="h-full w-3" style={{ background: preview.sidebar }} />
+      <div className="flex flex-1 flex-col gap-1 p-1.5">
+        <div className="h-1 w-2/3 rounded-full" style={{ background: preview.accent }} />
+        <div className="h-1 w-full rounded-full opacity-60" style={{ background: preview.line }} />
+        <div className="h-1 w-4/5 rounded-full opacity-40" style={{ background: preview.line }} />
+      </div>
+    </div>
+  )
+}
 
 export default function Settings() {
   const queryClient = useQueryClient()
-  const { theme, themeName, setThemeName } = useTheme()
+  const navigate = useNavigate()
+  const { toast } = useToast()
+  const { themeName, setThemeName } = useTheme()
   const [searchParams, setSearchParams] = useSearchParams()
-  const [gmailBanner, setGmailBanner] = useState(null)
   const [showTelegramModal, setShowTelegramModal] = useState(false)
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false)
   const [showGmailDisconnectConfirm, setShowGmailDisconnectConfirm] = useState(false)
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
 
   const { data: status, isError: statusError, refetch: refetchStatus, isFetching: statusFetching } = useQuery({ queryKey: ['status'], queryFn: getUserStatus })
   const { data: banks = [], isError: banksError, refetch: refetchBanks, isFetching: banksFetching } = useQuery({ queryKey: ['banks'], queryFn: getBanks })
@@ -27,10 +81,10 @@ export default function Settings() {
     const gmailError = searchParams.get('gmail_error')
 
     if (gmail === 'connected') {
-      setGmailBanner({ type: 'success', text: 'Gmail connected successfully.' })
+      toast('Gmail connected successfully')
       queryClient.invalidateQueries({ queryKey: ['status'] })
     } else if (gmailError) {
-      setGmailBanner({ type: 'error', text: `Couldn't connect Gmail: ${gmailError}` })
+      toast(`Couldn't connect Gmail: ${gmailError}`, { type: 'error', duration: 6000 })
     }
 
     if (gmail || gmailError) {
@@ -49,6 +103,36 @@ export default function Settings() {
       // Google's consent screen, using the URL the backend just minted.
       window.location.href = data.url
     },
+    onError: () => toast("Couldn't start Gmail connection. Please try again.", { type: 'error' }),
+  })
+
+  const bankMutation = useMutation({
+    mutationFn: setBank,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['status'] })
+      toast('Bank saved')
+    },
+    onError: () => toast("Couldn't save bank. Please try again.", { type: 'error' }),
+  })
+
+  const unlinkTelegramMutation = useMutation({
+    mutationFn: unlinkTelegram,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['status'] })
+      setShowDisconnectConfirm(false)
+      toast('Telegram disconnected')
+    },
+    onError: () => toast("Couldn't disconnect Telegram. Please try again.", { type: 'error' }),
+  })
+
+  const disconnectGmailMutation = useMutation({
+    mutationFn: disconnectGmail,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['status'] })
+      setShowGmailDisconnectConfirm(false)
+      toast('Gmail disconnected')
+    },
+    onError: () => toast("Couldn't disconnect Gmail. Please try again.", { type: 'error' }),
   })
 
   const hasError = statusError || banksError
@@ -58,313 +142,198 @@ export default function Settings() {
     refetchBanks()
   }
 
-  const bankMutation = useMutation({
-    mutationFn: setBank,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['status'] }),
-  })
-
-  const unlinkTelegramMutation = useMutation({
-    mutationFn: unlinkTelegram,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['status'] })
-      setShowDisconnectConfirm(false)
-    },
-  })
-
-  const disconnectGmailMutation = useMutation({
-    mutationFn: disconnectGmail,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['status'] })
-      setShowGmailDisconnectConfirm(false)
-      setGmailBanner({ type: 'success', text: 'Gmail disconnected.' })
-    },
-  })
-
-  const card = {
-    background: theme.card,
-    borderRadius: '16px',
-    border: `1px solid ${theme.cardBorder}`,
-    boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-    padding: '20px',
-    marginBottom: '12px',
+  const handleLogout = () => {
+    localStorage.removeItem('token')
+    window.location.href = '/login'
   }
 
-  const labelStyle = {
-    fontSize: '11px', fontWeight: 600, color: theme.textMuted,
-    textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: '14px',
-  }
-
-  const rowStyle = {
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    paddingBottom: '12px', marginBottom: '12px', borderBottom: `1px solid ${theme.cardBorder}`,
+  const restartOnboarding = () => {
+    localStorage.removeItem('lm-onboarding-step')
+    navigate('/onboarding')
   }
 
   return (
-      <Layout>
-        <div style={{ marginBottom: '28px' }}>
-          <p style={{ fontSize: '11px', fontWeight: 600, color: theme.textMuted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>Settings</p>
-          <h1 style={{ fontSize: '28px', fontWeight: 800, color: theme.text, letterSpacing: '-0.02em', margin: 0 }}>Preferences</h1>
-        </div>
+    <Layout>
+      <div className="mb-6">
+        <p className="m-0 text-[11px] font-bold uppercase tracking-[0.12em] text-muted">Settings</p>
+        <h1 className="m-0 mt-1 text-2xl font-extrabold tracking-tight text-text md:text-[28px]">Preferences</h1>
+      </div>
 
-        <div style={{ maxWidth: '480px' }}>
-
-          {gmailBanner && (
-              <div style={{
-                marginBottom: '12px', padding: '12px 16px', borderRadius: '14px',
-                background: gmailBanner.type === 'success' ? 'rgba(16,185,129,0.08)' : 'rgba(244,63,94,0.08)',
-                border: `1px solid ${gmailBanner.type === 'success' ? 'rgba(16,185,129,0.25)' : 'rgba(244,63,94,0.25)'}`,
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
-              }}>
-                <span style={{ fontSize: '12px', fontWeight: 600, color: gmailBanner.type === 'success' ? '#10B981' : '#F43F5E' }}>
-                  {gmailBanner.type === 'success' ? '✓ ' : '⚠️ '}{gmailBanner.text}
-                </span>
-                <button
-                    onClick={() => setGmailBanner(null)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: theme.textMuted, fontSize: '13px' }}
-                >
-                  ✕
-                </button>
+      {hasError ? (
+        <ErrorState title="We're having trouble loading your settings" onRetry={retryAll} isRetrying={isRetrying} />
+      ) : (
+        <div className="grid max-w-4xl gap-4 lg:grid-cols-2">
+          {/* Profile */}
+          <SectionCard icon={UserRound} title="Account" description="Your profile and session">
+            <div className="flex items-center gap-3.5 rounded-2xl border border-border bg-elev p-3.5">
+              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 text-base font-bold text-white">
+                {(status?.name?.[0] ?? status?.email?.[0] ?? '•').toUpperCase()}
               </div>
-          )}
+              <div className="min-w-0 flex-1">
+                <p className="m-0 truncate text-sm font-bold text-text">{status?.name ?? '—'}</p>
+                <p className="m-0 truncate text-xs text-muted">{status?.email ?? ''}</p>
+              </div>
+              <StatusPill ok={status?.active} okLabel="Syncing" offLabel="Sync off" />
+            </div>
+            <div className="mt-3.5 flex flex-wrap items-center gap-2">
+              <Button variant="secondary" size="sm" icon={RotateCcw} onClick={restartOnboarding}>
+                Replay setup guide
+              </Button>
+              <Button variant="dangerOutline" size="sm" icon={LogOut} onClick={() => setShowLogoutConfirm(true)}>
+                Sign out
+              </Button>
+            </div>
+          </SectionCard>
 
-          {hasError ? (
-              <ErrorState
-                  title="We're having trouble loading your settings"
-                  onRetry={retryAll}
-                  isRetrying={isRetrying}
-              />
-          ) : (
+          {/* Appearance */}
+          <SectionCard icon={Palette} title="Appearance" description="Pick a theme — it applies instantly">
+            <div className="grid grid-cols-3 gap-2.5">
+              {Object.entries(THEMES).map(([key, t]) => (
+                <button
+                  key={key}
+                  onClick={() => setThemeName(key)}
+                  aria-pressed={themeName === key}
+                  className={`flex cursor-pointer flex-col items-center gap-2 rounded-2xl border-2 bg-card p-2.5 transition-all ${
+                    themeName === key ? 'border-accent shadow-[0_0_0_3px_var(--accent-soft)]' : 'border-border hover:border-border-strong'
+                  }`}
+                >
+                  <ThemePreview preview={t.preview} />
+                  <span className={`flex items-center gap-1 text-[11px] font-bold ${themeName === key ? 'text-accent-strong' : 'text-sub'}`}>
+                    {themeName === key && <Check size={11} strokeWidth={3} />}
+                    {t.name}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </SectionCard>
+
+          {/* Gmail */}
+          <SectionCard
+            icon={Mail}
+            title="Gmail"
+            description="Reads your bank's transaction alert emails, nothing else"
+          >
+            {status?.gmailConnected ? (
+              <div className="flex flex-wrap items-center gap-2.5">
+                <StatusPill ok okLabel="Connected" offLabel="" />
+                <Button
+                  variant="dangerOutline"
+                  size="sm"
+                  icon={Unplug}
+                  loading={disconnectGmailMutation.isPending}
+                  onClick={() => setShowGmailDisconnectConfirm(true)}
+                >
+                  Disconnect
+                </Button>
+              </div>
+            ) : (
               <>
-                {/* Theme switcher */}
-                <div style={card}>
-                  <span style={labelStyle}>Appearance</span>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-                    {Object.entries(THEMES).map(([key, t]) => (
-                        <button
-                            key={key}
-                            onClick={() => setThemeName(key)}
-                            style={{
-                              padding: '14px 10px', borderRadius: '12px', border: `2px solid`,
-                              borderColor: themeName === key ? t.sidebarActive : theme.cardBorder,
-                              background: t.card, cursor: 'pointer', transition: 'all 0.15s',
-                              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
-                            }}
-                        >
-                          {/* Mini preview */}
-                          <div style={{ width: '36px', height: '24px', borderRadius: '6px', background: t.bg, border: `1px solid ${t.cardBorder}`, display: 'flex', overflow: 'hidden' }}>
-                            <div style={{ width: '10px', background: t.sidebar, height: '100%' }} />
-                            <div style={{ flex: 1, padding: '3px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                              <div style={{ height: '3px', borderRadius: '2px', background: t.sidebarActive, opacity: 0.8 }} />
-                              <div style={{ height: '3px', borderRadius: '2px', background: t.textMuted, opacity: 0.4 }} />
-                              <div style={{ height: '3px', borderRadius: '2px', background: t.textMuted, opacity: 0.25 }} />
-                            </div>
-                          </div>
-                          <span style={{ fontSize: '11px', fontWeight: 600, color: themeName === key ? t.sidebarActive : '#64748B' }}>{t.icon} {t.name}</span>
-                        </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Account info */}
-                <div style={card}>
-                  <span style={labelStyle}>Account</span>
-                  <div style={{ ...rowStyle }}>
-                    <span style={{ fontSize: '13px', color: theme.textSub }}>Email</span>
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: theme.text }}>{status?.email ?? '—'}</span>
-                  </div>
-                  <div style={{ ...rowStyle }}>
-                    <span style={{ fontSize: '13px', color: theme.textSub }}>Telegram</span>
-                    <span style={{
-                      fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: '20px',
-                      background: status?.telegramLinked ? 'rgba(16,185,129,0.1)' : theme.inputBorder,
-                      color: status?.telegramLinked ? '#10B981' : theme.textMuted,
-                    }}>
-              {status?.telegramLinked ? '✓ Linked' : 'Not linked'}
-            </span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '13px', color: theme.textSub }}>Sync status</span>
-                    <span style={{
-                      fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: '20px',
-                      background: status?.active ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)',
-                      color: status?.active ? '#10B981' : '#F59E0B',
-                    }}>
-              {status?.active ? '● Active' : '○ Inactive'}
-            </span>
-                  </div>
-                </div>
-
-                {/* Gmail */}
-                <div style={card}>
-                  <span style={labelStyle}>Gmail</span>
-                  <p style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '12px', marginTop: '-6px' }}>
-                    Connect Gmail so LedgerMind can automatically read your bank's transaction alert emails.
-                  </p>
-                  {status?.gmailConnected ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                        <span style={{
-                          display: 'inline-flex', alignItems: 'center', gap: '6px',
-                          fontSize: '12px', fontWeight: 600, padding: '8px 14px', borderRadius: '10px',
-                          background: 'rgba(16,185,129,0.1)', color: '#10B981',
-                        }}>
-                          ✓ Gmail Connected
-                        </span>
-                        <button
-                            onClick={() => setShowGmailDisconnectConfirm(true)}
-                            disabled={disconnectGmailMutation.isPending}
-                            style={{
-                              display: 'inline-flex', alignItems: 'center', gap: '6px',
-                              fontSize: '13px', fontWeight: 600, padding: '9px 16px',
-                              borderRadius: '10px', border: `1.5px solid ${theme.inputBorder}`,
-                              cursor: disconnectGmailMutation.isPending ? 'default' : 'pointer',
-                              opacity: disconnectGmailMutation.isPending ? 0.6 : 1,
-                              color: '#F43F5E', background: 'transparent',
-                            }}
-                        >
-                          {disconnectGmailMutation.isPending ? 'Disconnecting…' : 'Disconnect'}
-                        </button>
-                      </div>
-                  ) : (
-                      <button
-                          onClick={() => gmailMutation.mutate()}
-                          disabled={gmailMutation.isPending}
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', gap: '8px',
-                            fontSize: '13px', fontWeight: 600, padding: '9px 16px',
-                            borderRadius: '10px', border: 'none',
-                            cursor: gmailMutation.isPending ? 'default' : 'pointer',
-                            opacity: gmailMutation.isPending ? 0.7 : 1,
-                            color: '#1E293B', background: 'white', boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
-                          }}
-                      >
-                        <svg width="16" height="16" viewBox="0 0 18 18">
-                          <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 002.38-5.88c0-.57-.05-.66-.15-1.18z"/>
-                          <path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 01-7.18-2.54H1.83v2.07A8 8 0 008.98 17z"/>
-                          <path fill="#FBBC05" d="M4.5 10.52a4.8 4.8 0 010-3.04V5.41H1.83a8 8 0 000 7.18l2.67-2.07z"/>
-                          <path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 001.83 5.4L4.5 7.49a4.77 4.77 0 014.48-3.3z"/>
-                        </svg>
-                        {gmailMutation.isPending ? 'Connecting…' : 'Connect Gmail'}
-                      </button>
-                  )}
-                  {gmailMutation.isError && (
-                      <p style={{ fontSize: '12px', color: '#F43F5E', marginTop: '10px', marginBottom: 0 }}>
-                        Couldn't start Gmail connection. Please try again.
-                      </p>
-                  )}
-                  {disconnectGmailMutation.isError && (
-                      <p style={{ fontSize: '12px', color: '#F43F5E', marginTop: '10px', marginBottom: 0 }}>
-                        Couldn't disconnect Gmail. Please try again.
-                      </p>
-                  )}
-                </div>
-
-                {/* Bank */}
-                <div style={card}>
-                  <span style={labelStyle}>Bank</span>
-                  <p style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '12px', marginTop: '-6px' }}>
-                    LedgerMind reads transaction alerts from this bank's email address.
-                  </p>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <select
-                        defaultValue={status?.bankCode ?? ''}
-                        onChange={(e) => bankMutation.mutate(e.target.value)}
-                        style={{
-                          flex: 1, border: `1.5px solid ${theme.inputBorder}`, borderRadius: '10px',
-                          padding: '9px 12px', fontSize: '13px', color: theme.text,
-                          background: theme.card, outline: 'none',
-                        }}
-                    >
-                      <option value="" disabled style={{ background: theme.card }}>Select bank</option>
-                      {banks.map((b) => (
-                          <option key={b.code} value={b.code} style={{ background: theme.card }}>{b.name}</option>
-                      ))}
-                    </select>
-                    {bankMutation.isSuccess && (
-                        <span style={{ fontSize: '12px', color: '#10B981', fontWeight: 600 }}>✓ Saved</span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Telegram link */}
-                <div style={card}>
-                  <span style={labelStyle}>Telegram</span>
-                  {status?.telegramLinked ? (
-                      <>
-                        <p style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '12px', marginTop: '-6px' }}>
-                          Your Telegram account is connected. You'll get transaction notifications and can chat with your financial advisor any time.
-                        </p>
-                        <button
-                            onClick={() => setShowDisconnectConfirm(true)}
-                            disabled={unlinkTelegramMutation.isPending}
-                            style={{
-                              display: 'inline-flex', alignItems: 'center', gap: '6px',
-                              fontSize: '13px', fontWeight: 600, padding: '9px 16px',
-                              borderRadius: '10px', border: `1.5px solid ${theme.inputBorder}`,
-                              cursor: unlinkTelegramMutation.isPending ? 'default' : 'pointer',
-                              opacity: unlinkTelegramMutation.isPending ? 0.6 : 1,
-                              color: '#F43F5E', background: 'transparent',
-                            }}
-                        >
-                          {unlinkTelegramMutation.isPending ? 'Disconnecting…' : 'Disconnect Telegram'}
-                        </button>
-                        {unlinkTelegramMutation.isError && (
-                            <p style={{ fontSize: '12px', color: '#F43F5E', marginTop: '10px', marginBottom: 0 }}>
-                              Couldn't disconnect Telegram. Please try again.
-                            </p>
-                        )}
-                      </>
-                  ) : (
-                      <>
-                        <p style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '12px', marginTop: '-6px' }}>
-                          Get transaction notifications and chat with your financial advisor.
-                        </p>
-                        <button
-                            onClick={() => setShowTelegramModal(true)}
-                            style={{
-                              display: 'inline-flex', alignItems: 'center', gap: '6px',
-                              fontSize: '13px', fontWeight: 600, padding: '9px 16px',
-                              borderRadius: '10px', border: 'none', cursor: 'pointer',
-                              color: 'white', background: '#229ED9',
-                            }}
-                        >
-                          Connect Telegram
-                        </button>
-                      </>
-                  )}
-                </div>
+                <Button loading={gmailMutation.isPending} onClick={() => gmailMutation.mutate()}>
+                  <Mail size={15} /> {gmailMutation.isPending ? 'Opening Google…' : 'Connect Gmail'}
+                </Button>
+                <p className="m-0 mt-3 text-[11px] leading-relaxed text-muted">
+                  While we complete Google's verification, connecting Gmail currently works for
+                  approved test users only.
+                </p>
               </>
-          )}
+            )}
+          </SectionCard>
+
+          {/* Telegram */}
+          <SectionCard
+            icon={Send}
+            title="Telegram"
+            description="Transaction notifications + your AI financial advisor"
+          >
+            {status?.telegramLinked ? (
+              <div className="flex flex-wrap items-center gap-2.5">
+                <StatusPill ok okLabel="Linked" offLabel="" />
+                <Button
+                  variant="dangerOutline"
+                  size="sm"
+                  icon={Unplug}
+                  loading={unlinkTelegramMutation.isPending}
+                  onClick={() => setShowDisconnectConfirm(true)}
+                >
+                  Disconnect
+                </Button>
+              </div>
+            ) : (
+              <Button style={{ background: '#229ED9' }} onClick={() => setShowTelegramModal(true)}>
+                <Send size={15} /> Connect Telegram
+              </Button>
+            )}
+          </SectionCard>
+
+          {/* Bank */}
+          <SectionCard
+            icon={Landmark}
+            title="Bank"
+            description="LedgerMind watches for alerts from this bank's email address"
+          >
+            <div className="flex max-w-sm items-center gap-2.5">
+              <div className="flex-1">
+                <Select
+                  value={status?.bankCode ?? ''}
+                  onChange={(e) => bankMutation.mutate(e.target.value)}
+                  disabled={bankMutation.isPending}
+                >
+                  <option value="" disabled>Select bank</option>
+                  {banks.map((b) => (
+                    <option key={b.code} value={b.code}>{b.name}</option>
+                  ))}
+                </Select>
+              </div>
+              {bankMutation.isSuccess && (
+                <span className="flex shrink-0 items-center gap-1 text-xs font-bold text-success">
+                  <Check size={13} strokeWidth={3} /> Saved
+                </span>
+              )}
+            </div>
+            <p className="m-0 mt-3 text-[11px] text-muted">More banks are on the way.</p>
+          </SectionCard>
         </div>
+      )}
 
-        {showTelegramModal && (
-            <TelegramLinkModal onClose={() => setShowTelegramModal(false)} />
-        )}
+      {showTelegramModal && <TelegramLinkModal onClose={() => setShowTelegramModal(false)} />}
 
-        {showDisconnectConfirm && (
-            <ConfirmDialog
-                icon="🔌"
-                title="Disconnect Telegram?"
-                message="You'll stop getting transaction notifications and won't be able to chat with your financial advisor until you link it again."
-                confirmLabel="Disconnect"
-                confirmingLabel="Disconnecting…"
-                isConfirming={unlinkTelegramMutation.isPending}
-                onConfirm={() => unlinkTelegramMutation.mutate()}
-                onCancel={() => setShowDisconnectConfirm(false)}
-            />
-        )}
+      {showDisconnectConfirm && (
+        <ConfirmDialog
+          icon={Unplug}
+          title="Disconnect Telegram?"
+          message="You'll stop getting transaction notifications and won't be able to chat with your financial advisor until you link it again."
+          confirmLabel="Disconnect"
+          confirmingLabel="Disconnecting…"
+          isConfirming={unlinkTelegramMutation.isPending}
+          onConfirm={() => unlinkTelegramMutation.mutate()}
+          onCancel={() => setShowDisconnectConfirm(false)}
+        />
+      )}
 
-        {showGmailDisconnectConfirm && (
-            <ConfirmDialog
-                icon="📧"
-                title="Disconnect Gmail?"
-                message="LedgerMind will stop reading your bank's transaction emails and syncing new transactions until you reconnect."
-                confirmLabel="Disconnect"
-                confirmingLabel="Disconnecting…"
-                isConfirming={disconnectGmailMutation.isPending}
-                onConfirm={() => disconnectGmailMutation.mutate()}
-                onCancel={() => setShowGmailDisconnectConfirm(false)}
-            />
-        )}
-      </Layout>
+      {showGmailDisconnectConfirm && (
+        <ConfirmDialog
+          icon={Mail}
+          title="Disconnect Gmail?"
+          message="LedgerMind will stop reading your bank's transaction emails and syncing new transactions until you reconnect."
+          confirmLabel="Disconnect"
+          confirmingLabel="Disconnecting…"
+          isConfirming={disconnectGmailMutation.isPending}
+          onConfirm={() => disconnectGmailMutation.mutate()}
+          onCancel={() => setShowGmailDisconnectConfirm(false)}
+        />
+      )}
+
+      {showLogoutConfirm && (
+        <ConfirmDialog
+          icon={LogOut}
+          title="Sign out?"
+          message="You'll need to sign in again to access your account."
+          confirmLabel="Sign out"
+          confirmingLabel="Signing out…"
+          onConfirm={handleLogout}
+          onCancel={() => setShowLogoutConfirm(false)}
+        />
+      )}
+    </Layout>
   )
 }

@@ -1,25 +1,27 @@
 import Sidebar from './Sidebar'
-import { useTheme } from '../../context/ThemeContext'
+import GmailReconnectBanner from './GmailReconnectBanner'
+import CommandPalette from './CommandPalette'
 import { useIsMobile } from '../../hooks/useIsMobile'
 
 export default function Layout({ children }) {
-    const { theme } = useTheme()
-    const isMobile = useIsMobile()
+  const isMobile = useIsMobile()
 
-    return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: theme.bg }}>
-            <Sidebar />
-            <main style={{
-                flex: 1,
-                marginLeft: isMobile ? 0 : '224px',
-                padding: isMobile ? '16px 16px 84px' : '32px',
-                maxWidth: isMobile ? '100vw' : 'calc(100vw - 224px)',
-                width: '100%',
-                boxSizing: 'border-box',
-                overflowX: 'hidden',
-            }}>
-                {children}
-            </main>
+  return (
+    <div className="min-h-dvh bg-bg">
+      <Sidebar />
+      <main
+        className={`overflow-x-hidden ${
+          isMobile
+            ? 'px-4 pb-[calc(88px+env(safe-area-inset-bottom))] pt-4'
+            : 'ml-60 px-8 py-8'
+        }`}
+      >
+        <div className="animate-fade-in-up mx-auto w-full max-w-6xl">
+          <GmailReconnectBanner />
+          {children}
         </div>
-    )
+      </main>
+      {!isMobile && <CommandPalette />}
+    </div>
+  )
 }

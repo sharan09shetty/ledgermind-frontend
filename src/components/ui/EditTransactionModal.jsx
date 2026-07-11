@@ -1,162 +1,93 @@
 import { useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useTheme } from '../../context/ThemeContext'
-import { useIsMobile } from '../../hooks/useIsMobile'
 import { updateTransaction } from '../../api/endpoints'
+import { CATEGORIES, PAYMENT_MODES, categoryLabel, formatMode } from '../../utils/categories'
+import { useToast } from '../../context/ToastContext'
+import Modal from './Modal'
+import Button from './Button'
+import { Label, Input, Select } from './Field'
 
-const CATEGORIES = ['FOOD', 'TRAVEL', 'SHOPPING', 'BILLS', 'ENTERTAINMENT', 'HEALTH', 'INVESTMENT', 'SALARY', 'TRANSFER', 'OTHER']
-const MODES = ['UPI', 'CREDIT_CARD', 'DEBIT_CARD', 'CASH', 'CHEQUE', 'NEFT', 'IMPS', 'RTGS']
-
-function Modal({ txn, onClose }) {
-    const { theme } = useTheme()
-    const isMobile = useIsMobile()
-    const queryClient = useQueryClient()
-    const [form, setForm] = useState({
-        counterparty: txn.counterparty ?? '',
-        paymentMode: txn.paymentMode ?? '',
-        category: txn.category ?? '',
-    })
-
-    const set = (key, val) => setForm((f) => ({ ...f, [key]: val }))
-
-    const mutation = useMutation({
-        mutationFn: () => updateTransaction(txn.id, {
-            counterparty: form.counterparty.trim() || null,
-            paymentMode: form.paymentMode || null,
-            category: form.category || null,
-        }),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['transactions'] })
-            queryClient.invalidateQueries({ queryKey: ['summary'] })
-            queryClient.invalidateQueries({ queryKey: ['categories'] })
-            queryClient.invalidateQueries({ queryKey: ['merchants'] })
-            onClose()
-        },
-    })
-
-    const inputStyle = {
-        width: '100%', border: `1.5px solid ${theme.inputBorder}`, borderRadius: '12px',
-        padding: '10px 12px', fontSize: '13px', color: theme.text,
-        background: theme.card, outline: 'none', boxSizing: 'border-box',
-    }
-    const labelStyle = { fontSize: '11px', fontWeight: 500, color: theme.textMuted, display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }
-
-    return (
-        <>
-            {/* Backdrop */}
-            <div
-                style={{ position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}
-                onClick={onClose}
-            />
-
-            {/* Modal card */}
-            <div style={{
-                position: 'fixed',
-                top: isMobile ? 'auto' : '50%',
-                bottom: isMobile ? 0 : 'auto',
-                left: isMobile ? 0 : '50%',
-                right: isMobile ? 0 : 'auto',
-                transform: isMobile ? 'none' : 'translate(-50%, -50%)',
-                zIndex: 9999,
-                width: isMobile ? '100%' : '360px',
-                maxHeight: isMobile ? '85vh' : 'auto',
-                overflowY: isMobile ? 'auto' : 'visible',
-                background: theme.card,
-                borderRadius: isMobile ? '20px 20px 0 0' : '20px',
-                border: `1px solid ${theme.cardBorder}`,
-                boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
-                boxSizing: 'border-box',
-                overflow: isMobile ? undefined : 'hidden',
-            }}>
-                {/* Header */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `1px solid ${theme.cardBorder}` }}>
-                    <div>
-                        <p style={{ fontWeight: 600, color: theme.text, fontSize: '14px', margin: 0 }}>Edit Transaction</p>
-                        <p style={{ fontSize: '12px', color: theme.textMuted, marginTop: '2px' }}>Update merchant, mode or category</p>
-                    </div>
-                    <button
-                        onClick={onClose}
-                        style={{ width: '28px', height: '28px', borderRadius: '8px', border: 'none', background: 'transparent', color: theme.textMuted, cursor: 'pointer', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                    >×</button>
-                </div>
-
-                <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                    {/* Merchant */}
-                    <div>
-                        <label style={labelStyle}>Merchant</label>
-                        <input
-                            placeholder="e.g. Amazon, Swiggy..."
-                            value={form.counterparty}
-                            onChange={(e) => set('counterparty', e.target.value)}
-                            autoFocus
-                            style={inputStyle}
-                            onFocus={(e) => e.target.style.borderColor = '#10B981'}
-                            onBlur={(e) => e.target.style.borderColor = theme.inputBorder}
-                        />
-                    </div>
-
-                    {/* Mode */}
-                    <div>
-                        <label style={labelStyle}>Payment Mode</label>
-                        <select
-                            value={form.paymentMode}
-                            onChange={(e) => set('paymentMode', e.target.value)}
-                            style={inputStyle}
-                        >
-                            <option value="">—</option>
-                            {MODES.map((m) => <option key={m} value={m} style={{ background: theme.card }}>{m}</option>)}
-                        </select>
-                    </div>
-
-                    {/* Category */}
-                    <div>
-                        <label style={labelStyle}>Category</label>
-                        <select
-                            value={form.category}
-                            onChange={(e) => set('category', e.target.value)}
-                            style={inputStyle}
-                        >
-                            <option value="">—</option>
-                            {CATEGORIES.map((c) => <option key={c} value={c} style={{ background: theme.card }}>{c}</option>)}
-                        </select>
-                    </div>
-
-                    {mutation.isError && (
-                        <p style={{ fontSize: '12px', color: '#F43F5E', margin: 0 }}>Failed to save changes. Please try again.</p>
-                    )}
-
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                        <button
-                            onClick={onClose}
-                            style={{
-                                flex: 1, padding: '11px', borderRadius: '12px', border: `1.5px solid ${theme.inputBorder}`,
-                                fontSize: '13px', fontWeight: 600, color: theme.textSub, background: 'transparent', cursor: 'pointer',
-                            }}
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            onClick={() => mutation.mutate()}
-                            disabled={mutation.isPending}
-                            style={{
-                                flex: 2, padding: '11px', borderRadius: '12px', border: 'none',
-                                fontSize: '13px', fontWeight: 600, color: 'white', cursor: 'pointer',
-                                background: '#10B981',
-                                opacity: mutation.isPending ? 0.6 : 1,
-                                transition: 'opacity 0.15s',
-                            }}
-                        >
-                            {mutation.isPending ? 'Saving...' : 'Save Changes'}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </>
-    )
-}
-
-// Portal wrapper — renders outside Layout's DOM tree, fixing z-index issues
 export default function EditTransactionModal({ txn, onClose }) {
-    return createPortal(<Modal txn={txn} onClose={onClose} />, document.body)
+  const queryClient = useQueryClient()
+  const { toast } = useToast()
+  const [form, setForm] = useState({
+    counterparty: txn.counterparty ?? '',
+    paymentMode: txn.paymentMode ?? '',
+    category: txn.category ?? '',
+  })
+
+  const set = (key, val) => setForm((f) => ({ ...f, [key]: val }))
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      updateTransaction(txn.id, {
+        counterparty: form.counterparty.trim() || null,
+        paymentMode: form.paymentMode || null,
+        category: form.category || null,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['summary'] })
+      queryClient.invalidateQueries({ queryKey: ['categories'] })
+      queryClient.invalidateQueries({ queryKey: ['merchants'] })
+      queryClient.invalidateQueries({ queryKey: ['transactions-recent'] })
+      toast('Transaction updated')
+      onClose()
+    },
+  })
+
+  return (
+    <Modal title="Edit transaction" subtitle="Update merchant, mode or category" onClose={onClose}>
+      <form
+        className="flex flex-col gap-4 p-5"
+        onSubmit={(e) => {
+          e.preventDefault()
+          mutation.mutate()
+        }}
+      >
+        <div>
+          <Label>Merchant</Label>
+          <Input
+            placeholder="e.g. Amazon, Swiggy…"
+            value={form.counterparty}
+            onChange={(e) => set('counterparty', e.target.value)}
+            autoFocus
+          />
+        </div>
+
+        <div>
+          <Label>Payment mode</Label>
+          <Select value={form.paymentMode} onChange={(e) => set('paymentMode', e.target.value)}>
+            <option value="">—</option>
+            {PAYMENT_MODES.map((m) => (
+              <option key={m} value={m}>{formatMode(m)}</option>
+            ))}
+          </Select>
+        </div>
+
+        <div>
+          <Label>Category</Label>
+          <Select value={form.category} onChange={(e) => set('category', e.target.value)}>
+            <option value="">—</option>
+            {CATEGORIES.map((c) => (
+              <option key={c} value={c}>{categoryLabel(c)}</option>
+            ))}
+          </Select>
+        </div>
+
+        {mutation.isError && (
+          <p className="m-0 text-xs font-medium text-danger">Failed to save changes. Please try again.</p>
+        )}
+
+        <div className="flex gap-2">
+          <Button type="button" variant="secondary" className="flex-1" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" className="flex-[2]" loading={mutation.isPending}>
+            {mutation.isPending ? 'Saving…' : 'Save changes'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  )
 }

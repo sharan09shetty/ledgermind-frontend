@@ -1,52 +1,27 @@
-import { useTheme } from '../../context/ThemeContext'
+import { CloudOff } from 'lucide-react'
+import Button from './Button'
 
 export default function ErrorState({
   title = "We're having trouble loading this page",
-  message = 'Please try again in a moment.',
+  message = 'Check your connection and try again in a moment.',
   onRetry,
   isRetrying = false,
-  minHeight = '360px',
+  minHeight = 320,
 }) {
-  const { theme } = useTheme()
-
   return (
     <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight,
-        textAlign: 'center',
-        padding: '40px 20px',
-        background: theme.card,
-        borderRadius: '20px',
-        border: `1px solid ${theme.cardBorder}`,
-        boxShadow: theme.shadow,
-      }}
+      className="animate-fade-in flex flex-col items-center justify-center rounded-3xl border border-border bg-card px-6 py-10 text-center shadow-card"
+      style={{ minHeight }}
     >
-      <p style={{ fontSize: '28px', marginBottom: '10px' }}>⚠️</p>
-      <p style={{ fontSize: '15px', fontWeight: 600, color: theme.text, margin: 0 }}>{title}</p>
-      <p style={{ fontSize: '13px', color: theme.textMuted, marginTop: '6px', marginBottom: '18px' }}>{message}</p>
+      <div className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-danger/10 text-danger">
+        <CloudOff size={26} strokeWidth={1.8} />
+      </div>
+      <p className="m-0 text-[15px] font-bold text-text">{title}</p>
+      <p className="m-0 mt-1.5 max-w-xs text-[13px] text-muted">{message}</p>
       {onRetry && (
-        <button
-          onClick={onRetry}
-          disabled={isRetrying}
-          style={{
-            fontSize: '13px',
-            fontWeight: 600,
-            padding: '9px 20px',
-            borderRadius: '10px',
-            border: 'none',
-            cursor: isRetrying ? 'default' : 'pointer',
-            background: theme.sidebarActive,
-            color: 'white',
-            opacity: isRetrying ? 0.6 : 1,
-            transition: 'opacity 0.15s',
-          }}
-        >
-          {isRetrying ? 'Retrying...' : 'Try Again'}
-        </button>
+        <Button className="mt-5" loading={isRetrying} onClick={onRetry}>
+          {isRetrying ? 'Retrying…' : 'Try again'}
+        </Button>
       )}
     </div>
   )

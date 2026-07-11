@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
+import { LogoMark } from '../components/brand/Logo'
 
 export default function Callback() {
   const [searchParams] = useSearchParams()
@@ -13,17 +14,17 @@ export default function Callback() {
     } else {
       navigate('/login', { replace: true })
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (
-      <div style={{
-        minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: '#0F172A',
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <span style={{ fontSize: '32px', color: '#10B981' }}>◈</span>
-          <p style={{ color: '#64748B', fontSize: '13px', marginTop: '12px' }}>Signing you in...</p>
+    <div className="flex min-h-dvh items-center justify-center" style={{ background: '#0F172A' }}>
+      <div className="animate-fade-in text-center">
+        <div className="animate-pop mx-auto w-fit">
+          <LogoMark size={48} />
         </div>
+        <p className="mt-4 text-[13px] text-slate-400">Signing you in…</p>
       </div>
+    </div>
   )
 }
