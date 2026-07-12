@@ -26,6 +26,9 @@ export const completeOnboarding = () =>
 export const setBank = (code) =>
     api.patch(`/users/bank?code=${code}`).then((r) => r.data)
 
+export const setUserTheme = (name) =>
+    api.patch(`/users/theme?name=${name}`).then((r) => r.data)
+
 export const getBanks = () =>
     api.get('/banks').then((r) => r.data)
 

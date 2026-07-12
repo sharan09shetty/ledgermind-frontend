@@ -1,4 +1,6 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { setUserTheme } from '../api/endpoints'
 
 /**
  * Visual styling lives in CSS variables (see index.css) keyed off
@@ -57,10 +59,27 @@ export const THEMES = {
 const ThemeContext = createContext()
 
 export function ThemeProvider({ children }) {
-  const [themeName, setThemeName] = useState(() => {
+  const [themeName, setThemeNameState] = useState(() => {
     const saved = localStorage.getItem('lm-theme')
     return THEMES[saved] ? saved : 'light'
   })
+
+  const queryClient = useQueryClient()
+
+  // User-initiated theme change: apply locally and save to the account so it
+  // follows them to other devices / the installed PWA. `persist: false` is
+  // for applying the server's stored theme without echoing it back.
+  const setThemeName = useCallback((name, { persist = true } = {}) => {
+    if (!THEMES[name]) return
+    setThemeNameState(name)
+    if (persist && localStorage.getItem('token')) {
+      setUserTheme(name)
+        // Keep the cached /users/status in step, or navigating (which re-runs
+        // the server-theme sync against the stale cache) would revert the pick
+        .then((data) => queryClient.setQueryData(['status'], data))
+        .catch(() => {}) // best-effort; local apply already done
+    }
+  }, [queryClient])
 
   const theme = THEMES[themeName] ?? THEMES.light
 

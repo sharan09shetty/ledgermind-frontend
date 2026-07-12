@@ -27,7 +27,7 @@ function ConnectionDot({ ok }) {
   )
 }
 
-export default function Sidebar() {
+export default function Sidebar({ hideMobileTopBar = false }) {
   const isMobile = useIsMobile()
   const navigate = useNavigate()
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
@@ -41,10 +41,13 @@ export default function Sidebar() {
   if (isMobile) {
     return (
       <>
-        {/* Slim top brand bar */}
-        <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-card/85 px-4 py-2.5 backdrop-blur-lg">
-          <Logo height={26} />
-        </header>
+        {/* Slim top brand bar — padded below the notch/status bar (safe-area)
+            so the logo never sits under the clock in the installed PWA */}
+        {!hideMobileTopBar && (
+          <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-card/85 px-4 pb-2.5 pt-[calc(env(safe-area-inset-top)_+_0.625rem)] backdrop-blur-lg">
+            <Logo height={26} />
+          </header>
+        )}
 
         {/* Bottom navigation — navigation only, account actions live in Settings */}
         <nav

@@ -2,7 +2,9 @@
 <html lang="en" data-theme="light">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- interactive-widget=resizes-content: Android keyboard resizes the viewport
+         so the composer/bottom nav stay visible instead of being covered -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
     <title>LedgerMind — Your finances, understood</title>
     <meta name="description" content="AI-powered expense tracking that reads your bank alerts, categorizes spending, and answers questions about your money." />
     <link rel="icon" href="/favicon.ico" sizes="16x16" />
@@ -20,6 +22,21 @@
       try {
         var t = localStorage.getItem('lm-theme')
         if (t === 'dark' || t === 'midnight') document.documentElement.setAttribute('data-theme', t)
+      } catch (e) {}
+
+      // iOS Safari auto-zooms the page when focusing inputs with font-size
+      // < 16px and leaves it zoomed. maximum-scale=1 disables that focus zoom;
+      // since iOS 10 Safari still allows manual pinch-zoom regardless, so
+      // accessibility is preserved. Applied only on iOS — Android Chrome
+      // would honor it by blocking pinch-zoom entirely.
+      try {
+        var isIOS =
+          /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+          (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+        if (isIOS) {
+          var vp = document.querySelector('meta[name="viewport"]')
+          vp.setAttribute('content', vp.getAttribute('content') + ', maximum-scale=1.0')
+        }
       } catch (e) {}
     </script>
   </head>

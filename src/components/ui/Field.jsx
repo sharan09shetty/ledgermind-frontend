@@ -10,7 +10,7 @@ export function Label({ children, optional = false }) {
 }
 
 const baseControl =
-  'w-full rounded-xl border-[1.5px] border-border bg-input px-3 text-[13px] text-text outline-none transition-colors placeholder:text-muted focus:border-accent'
+  'w-full rounded-xl border-[1.5px] border-border bg-input px-3 text-[16px] text-text outline-none transition-colors placeholder:text-muted focus:border-accent md:text-[13px]'
 
 export function Input({ className = '', ...props }) {
   return <input className={`${baseControl} h-10 ${className}`} {...props} />
